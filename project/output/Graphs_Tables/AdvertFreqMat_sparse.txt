@@ -1,0 +1,30 @@
+% latex table generated in R 3.3.2 by xtable 1.8-2 package
+% Sat Feb 11 12:10:26 2017
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlrrrr}
+  \hline
+ & Observed Value & traintest NObs & traintest \% & handin NObs & handin \% \\ 
+  \hline
+3 & AC &   1 & 0.00 &  &  \\ 
+  4 & AD &   1 & 0.00 &   1 & 0.01 \\ 
+  7 & AG &   3 & 0.01 &  &  \\ 
+  10 & AJ &   2 & 0.00 &  &  \\ 
+  12 & AL &   2 & 0.00 &   1 & 0.01 \\ 
+  13 & AM &   2 & 0.00 &  &  \\ 
+  18 & AS &   1 & 0.00 &  &  \\ 
+  20 & AU &   2 & 0.00 &  &  \\ 
+  24 & AY &   1 & 0.00 &   1 & 0.01 \\ 
+  27 & BB &   4 & 0.01 &   1 & 0.01 \\ 
+  30 & BE &   2 & 0.00 &   1 & 0.01 \\ 
+  32 & BG &   3 & 0.01 &  &  \\ 
+  33 & BH &   2 & 0.00 &  &  \\ 
+  35 & BK &   4 & 0.01 &   2 & 0.02 \\ 
+  38 & BN &   1 & 0.00 &  &  \\ 
+  42 & BS &   4 & 0.01 &   2 & 0.02 \\ 
+  44 & BU &   1 & 0.00 &   1 & 0.01 \\ 
+  45 & BV &   2 & 0.00 &  &  \\ 
+  46 & BW &   1 & 0.00 &  &  \\ 
+   \hline
+\end{tabular}
+\end{table}

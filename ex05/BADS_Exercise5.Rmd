@@ -1,0 +1,121 @@
+---
+title: "Exercise 5"
+subtitle: Business Analytics and Data Science WS16/17
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+# NEED FOR CHANGE ---- 
+# Note that this code will not work on your computer. 
+#if (!grepl("Dropbox/Lecture/Mod_BADS/Tutorial", getwd(), ignore.case = T)){
+#  setwd(paste0(getwd(), "/../Dropbox/Lecture/Mod_BADS/Tutorial"))  
+#}
+
+# You can uncomment the next line and specify the directory for the exercise on your computer
+ setwd("C://Your/own/path")
+# End of NEED FOR CHANGE ----
+
+solution <- TRUE
+if(solution == FALSE){
+knitr::opts_chunk$set(echo = FALSE, results = 'hide', message = FALSE, warning = FALSE, fig.keep = 'none', cache = FALSE)
+}
+options(repos=c(CRAN = "https://cran.uni-muenster.de/"))
+```
+
+## Introduction
+In this exercise, you will look deeper into a very popular machine learning model called "Decision tree" that can be used for classification and regression problems. Later in the course, we will see them again as part of the very popular random forest ensemble model.
+Trees are very interpretable and can, at least in principle, accomodate missing values in new observations to be predicted. 
+
+Classification and regression trees work by partitioning the data into smaller, more homogeneous groups. Based on some measure of homogeneity, e.g. the Gini index/impurity (in the two class case $p_1 (1 - p_1) + p_2 (1 - p_2)$) or overall sums of squared errors (SSE), the algorithm looks for the variable and split for this variable that most increases homogeneity in the resulting partitions. This splitting process continues within the newly created partions until a  pre-defined maximum depth or minimum number of observations in each node is reached. Predictions can then be calculated based on the category probabilities in the terminal nodes (for classification) or a model trained on each subgroup (for regression).
+
+## Exercise 5.1: Decision Trees
+Decisions trees are among the most basic machine learning algorithms used for classification and regression.
+
+1. Load the loan data set using your custom function from Exercise
+2. Use function **rpart()** in the package with the same name to build a decision tree on the data with the default options. 
+3. As before, predict the the default probability (i.e. BAD == 1) and compare the performance to the models from exercise 4 using the brier score.
+4. Use package **rpart.plot** to visualize your decision tree. Have a look at the options to optimize it, e.g. to look at how many observations fall into each node.
+5. What credit risk does a 55-year old man without income (no response on employment) with three childen and no outstanding mortgage whose wife earns $60.000 a year pose according to the model tree?
+
+```{r}
+# Link to the R script storing your function(s)
+source("BADS-HelperFunctions.R")
+loans <- get.loan.dataset()
+# If the previous line did not work on your machine, the most likely 
+# cause is that something with the file directories went wrong.
+# Check whether the data is available in your working directory. 
+
+if(!require("rpart")) install.packages("rpart"); library("rpart") # Try to load rpart, if it doesn't exist, then install and load it
+
+### Training and prediction
+dt <- rpart(BAD ~ ., data = loans) # create decision tree classifier
+pred.dt <- predict(dt, newdata = loans, type = "prob")[, 2] # calculate predictions (in-sample)
+
+# Calculate performance according to brier score
+y <- as.numeric(loans$BAD) - 1 # This is a good example of why you need to be careful when transforming factor variables to numeric
+brier.dt <- sum((y - pred.dt)^2) / length(y) # compute tree's Brier Score
+
+### Producing a nice chart of the tree 
+# (for further improvements see http://blog.revolutionanalytics.com/2013/06/plotting-classification-and-regression-trees-with-plotrpart.html)
+# In order to visualize your decision trees, "rpart.plot" is a handy package. Initially, install the package and load it with the library() function
+if(!require("rpart.plot")) install.packages("rpart.plot"); library("rpart.plot")
+
+# Visualize the results from "dtree" using the prp() function. 
+prp(dt)
+prp(dt, extra = 104, border.col = 0) # Print the percentage of observations and class probabilities in each node
+#------------------------------------------------------------------------------------------------------------
+
+# Answer question 5: no, yes (YOB == 61), no, yes -> Good risk (36% default risk) 
+
+#### Prediction for missing values with surrogate splits ####
+# For every split in the tree, a surrogate or replacement split is saved, which gives approximately the same result. When the information for the original split is not available,
+# the surrogate split is used in its place.
+
+# Create some example data, consisting of the last two lines x2
+new.obs <- loans[rep(40:50, each = 2), ]
+# Add some mising values to the example data
+new.obs[seq(1,nrow(new.obs),2), "dINC_A"] <- NA
+print(new.obs)
+# Predict for the observations with and without missing values
+pred.missing <- predict(dt, newdata = new.obs, type = "prob")[, 2]
+print(pred.missing)
+# Even with the variable for the first and most important split missing, the model gives predictions and they are mostly close to the correct prediction.
+```
+
+
+## Exercise 5.2: Controlling complexity (or A deeper look into shallow trees)
+In theory, we can grow a tree by adding splits until every observation in the training set is classified correctly. In practice, we don't do this because the trees very complex and will overfit the training data, a problem that we will discuss in more detail during the next exercise. The process of stopping early or discarding possible splits is called *pruning* the tree. There are several stopping criteria that can be set to achieve this.
+
+1. Build another decision tree on the data and save it as **dt.full**, but this time override the default option settings. Set a complexity parameter value of 0 and a minimum number of observations that must exist in a node in order for a split to be attempted of 3. Look at the tree structure. Note: This tree will be large, so plotting it may take a while.
+2. Let's see what happens when we build trees that are a little more or a little less complex than the default trees. Check the default complexity values by reading **?rpart**. Build two more decision tree and save them as **dt.prunedLess** and **dt.prunedMore**, with settings cp = 0.005, minbucket = 4 and cp = 0.02, minbucket = 8. Plot the trees.
+3. As before, predict the the default probability (i.e. BAD == 1) and compare the performance of all the trees using the brier score. Which tree would you recommend to the bank?
+
+```{r}
+# Without any pruning, a tree will ultimately split until the observations are perfectly classified
+dt.full <- rpart(BAD ~ ., data = loans, cp = 0, minsplit = 3) # low minimum increase or number of observations in node for a split to be attempted
+prp(dt.full) # This may take about one minute since the tree is very large
+
+# With pruning, the tree will be much smaller 
+dt.prunedLess <- rpart(BAD ~ ., data=loans, cp = 0.005, minbucket = 4) # create decision tree classifier
+prp(dt.prunedLess, extra = 104, border.col = 0) 
+ 
+# With pruning, the tree will be much smaller 
+dt.prunedMore <- rpart(BAD ~ ., data=loans, cp = 0.02, minbucket = 8) # create decision tree classifier
+prp(dt.prunedMore, extra = 104, border.col = 0) 
+
+# Prediction and brier score
+# A custom function is used here to make the code more readable
+score.tree <- function(tree.model, y, data){
+  pred <- predict(tree.model, newdata=data, type="prob")[, 2]
+  brier <- sum((y - pred)^2) / length(y) 
+}
+# Calculate the brier score for all tree models. Remember that the brier score is an error measure, so closer to 0 is better
+brier.trees <- sapply(list("full" = dt.full, "prunedLess" = dt.prunedLess, "default" = dt , "prunedMore" = dt.prunedMore), USE.NAMES = TRUE, score.tree, y, loans)
+print(brier.trees)
+
+### The brier score seems to indicate that the fully-grown decision tree performs amazingly well and far better than any other model.
+# Why do you think this is the case?
+# This is a typical case of overfitting, where the model fits the training data too well and generalizes poorly on new data. 
+```

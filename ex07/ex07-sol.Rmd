@@ -1,0 +1,226 @@
+F---
+title: "Exercise 7"
+subtitle: Business Analytics and Data Science WS16/17
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+# NEED FOR CHANGE ---- 
+# Note that this code will not work on your computer. 
+if (!grepl("Dropbox/Lecture/Mod_BADS/Tutorial", getwd(), ignore.case = T)){
+  setwd(paste0(getwd(), "/../Dropbox/Lecture/Mod_BADS/Tutorial"))  
+}
+
+# You can uncomment the next line and specify the directory for the exercise on your computer
+# setwd("C://Your/own/path")
+# End of NEED FOR CHANGE ----
+
+solution <- TRUE
+if(solution == FALSE){
+knitr::opts_chunk$set(echo = FALSE, eval = FALSE, results = 'hide', message = FALSE, warning = FALSE, fig.keep = 'none', cache = FALSE)
+}
+options(repos=c(CRAN = "https://cran.uni-muenster.de/"))
+```
+
+## Introduction
+You are now familiar with your first really complex machine learning model from the lecture: the artificial neural network. With some extensions and at a much larger size, this is the model that facilitates self-driving cars, digital assistancs such as Siri, Cortana, etc., and humiliated famours Go players. In this tutorial, we use it to predict credit risk using  our loan data set. To find the best neural network, or at least the neural network with the optimal number of nodes, we will use the cross-validation loop from the previous tutorial to validate each of the parameter candidates.
+Later on, you will learn how to simplify the process and tune paramter with the **caret** package. We will also learn how to set up a parallel backend and parallelize code with **caret** and R in general for more speed.
+
+## Exercise 7.1: Tuning a neural network 
+
+1. Load the data set loans and split into training and test set with a ratio of 80:20 as done in the previous exercise. 
+2. Use function **cut()** as in the last exercise to save a vector of indices that separate the training data into 5 folds of equal size.
+3. Initialize a vector **nnet.sizes** containing the *n* sizes for the neural network that you would like to compare, e.g. 3, 6, 9, 12, and 15 nodes. Also initialize an empty *k*x*n* matrix to collect the results within the loop.
+4. It's time to put everything together. Write two for loops, one within the other, that do the following:    
+    - For each size candidate:
+        - For each fold:
+            - Train a model with size equal to the current size candidate on the other folds.
+            - Predict the outcomes for the current fold.
+            - Calculate the AUC value on the validation fold and save the result. Function **auc()** from package **pROC** does this quickly.
+5. Display the results for each tuning candidate in *n* boxplots.
+
+```{r}
+# Load the data set 
+if(!require("nnet")) install.packages("nnet"); library("nnet") # Try to load rpart, if it doesn't exist, then install and load it
+if(!require("pROC")) install.packages("pROC"); library("pROC") # Try to load rpart, if it doesn't exist, then install and load it
+if(!require("caret")) install.packages("caret"); library("caret") # Try to load rpart, if it doesn't exist, then install and load it
+# Link to the R script storing your function(s)
+source("BADS-HelperFunctions.R")
+loans <- get.loan.dataset()
+
+# Splitting the data into a test and a training set 
+idx.train <- createDataPartition(y = loans$BAD, p = 0.8, list = FALSE) # Draw a random, stratified sample including p percent of the data
+train <- loans[idx.train, ] # training set
+test <-  loans[-idx.train, ] # test set (drop all observations with train indeces)
+
+# The number of folds and the specific folds for cv
+k <- 5
+head(train[sample(nrow(train)),])
+train.rnd <- train[sample(nrow(train)),]
+folds <- cut(1:nrow(train.rnd), breaks = k, labels = FALSE)
+
+### Specify the setup:
+# The number of nodes to try for the model
+nnet.sizes <- seq(from = 3, to = 15, by = 3)
+# Initialize the data frame that collects the results
+results <- as.data.frame(matrix(NA, ncol = length(nnet.sizes), nrow = k))
+
+# The next line mesaures the time that it takes to run the function for comparison with
+# parallelization. You can ignore it.
+timing.seq <- system.time( 
+
+# Loop over different number of nodes, i.e. size of the neural network
+for(n in 1:length(nnet.sizes)){
+  # This is the cross-validation loop from before
+  for (i in 1:k) {
+    # Split data into training and validation
+    idx.val <- which(folds == i, arr.ind = TRUE)
+    cv.train <- train.rnd[-idx.val,]
+    cv.val <- train.rnd[idx.val,]
+    # Train the neural network model with a number of nodes n
+    neuralnet <- nnet(BAD~., data = cv.train, # the data and formula to be used
+                      trace = FALSE, maxit = 1000, # general options
+                      size = nnet.sizes[n]) # the number of nodes in the model
+    # Build and evaluate models using these partitions
+    yhat <- predict(neuralnet, newdata = cv.val, type = "raw")
+    # Calculate the AUC value with a function from package pROC
+    results[i, n] <- auc(cv.val$BAD, as.vector(yhat))
+  }
+}
+
+)
+
+# Visualize the results in a boxplot 
+# with one boxplot for each column
+colnames(results) <- nnet.sizes 
+boxplot(results, xlab = "Number of nodes in hidden layer", ylab = "Area under the ROC curve (AUC)")
+```
+
+## Exercise 7.2: Tuning a neural network with caret
+**Caret** is a package built to wrap an extensive list of existing model functions/packages into one coherent framework. It contains a wrapper function **train()** that takes care of model selection and training. **train()** takes as argument the model formula, e.g. BAD~., the data, the name of a model, any model-specific options, the parameters validated during model selection, the loss function that measures model performance and the control parameters for the model selection. The control parameters, e.g. split-sample testing or cross-validation, are specified via a helper function **trainControl()**. 
+
+
+1. Load package **caret** and create an object *model.control* which contains the setup for the model estimation framework. Check the help and set the following control parameters in **trainControl()**:     
+    - (Unrepeated) 5-fold cross-validation
+    - Class probabilities should be calculated
+    - **twoClassSummary** as **summaryFunction**
+2. Specify the parameter values for the neural networks, which you want to compare in an object **nn.parms**. So far, we checked only a differing number number of nodes, but there is another parameter *decay* that has an impact on model training. To compare models with different combinations of these values, you can define a matrix with all possible combinations in the rows using function **expand.grid**. Hint: Try decay values between 1 and 0.0001. 
+3. Train the neural networks for all parameter combinations, compare their performance on the AUC metric and save the best model to object **nn**. Hint: Function **train()** does all this for you in one call. Specify ROC as metric to be used to compare on AUC values. 
+4. Predict **yhat.nn** along the lines of previous exercises and evaluate the model performance on the test set using the AUC. 
+
+```{R}
+model.control<- trainControl(
+  method = "cv", # 'cv' for cross validation
+  number = 5, # number of folds in cross validation
+  #repeats = 3, # number for repeated cross validation
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary,
+  allowParallel = TRUE, # Enable parallelization if available
+  returnData = FALSE # The training data will not be included in the ouput training object
+  )
+
+# Define a search grid of values to test
+nn.parms <- expand.grid(decay = c(0, 10^seq(-3, 0, 1)), size = seq(3,15,2))
+
+#Train neural network nn with 5-fold cv
+nn <- train(BAD~., data = train,  
+            method = "nnet", maxit = 200, trace = FALSE, # options for nnet function
+            tuneGrid = nn.parms, # parameters to be tested
+            metric = "ROC", trControl = model.control)
+# Analyze the cross-validation results
+print(nn)
+plot(nn)
+```
+### Excursion: Plotting neural networls
+You can query the internal structure of the network using the **summary()** function
+```{R}
+summary(nn)
+```
+Essentially, the output depicts the magnitude of connection weights (i.e., parameters) 
+within the neural network. A nicer way to depict the network structure graphically is
+proposed in the *R is my Friend*  [blog](https://beckmw.wordpress.com/2013/11/14/visualizing-neural-networks-in-r-update/)
+To test this approach, you need to prepare your R environment by installing **developer tools**, 
+which, amongst others, allow you to source code directly from github repositories.
+Afterwards, you can plot the structure of the neural network using **plot.nnet()** 
+Check out the blog for more advanced demos; e.g., how to augment to graph with connection weights 
+
+```{R}
+if(!require("devtools")) install.packages("devtools"); library("devtools")
+source_url("https://gist.githubusercontent.com/fawda123/7471137/raw/466c1474d0a505ff044412703516c34f1a4684a5/nnet_plot_update.r")
+
+if(!require("reshape")) install.packages("reshape"); library("reshape")
+plot.nnet(nn)
+```
+
+We can now predict the outcomes of the test set and assess these in terms of AUC or other performance criteria.
+
+```{R}
+yhat.nn   <- predict(nn, newdata = test, type = "prob")[,2]
+# Obtain ROC curve and calculate AUC 
+nn.roc <-roc(test$BAD, yhat.nn)
+auc(nn.roc)
+plot.roc(nn.roc)
+# We can do the same but create a nice plot with the the Hmeasure package
+library(hmeasure)
+h <- HMeasure(true.class = as.numeric(test$BAD)-1, scores = yhat.nn)
+# Note that AUC is the same; as it should be
+h$metrics["AUC"]
+plotROC(h, which=1)
+```
+
+## Tutorial: Parallel computing in R
+*This part will be explained further in the exercise and/or the solution.*
+When talking about parallel computing, it is useful to think of the computer as a factory that produces our code output. Just like a factory, our system houses many processes at the same time. Usually when we run an R script, a single worker is working its way through the script and producing output at it goes along. And just like in a factory, several workers to work at separate parts of the project at the same time. Naturally, this requires some organization and the consolidation of the output of all workers overhead.
+In the case of paramter tuning, we face a large project that is "embarrassingly parallel", where the output of each worker is completely independent of the other workers' results. It is therefore especially convenient to split this work up between several workers and that's what we will do.
+
+1. You can easily set up a parallel backend with the **doParallel** package. This takes two steps:      
+    - Define a cluster object **cl** with the output of function **makeCluster()**. You will only need to specify the number of workes/cores that you want to use. HINT: Find out the number of available clusters with the **detectCores()** function. Many modern laptops have more than a single core, but older models might only have one. In that case, you can't parallelize your code in this way. You could sign up with the *Research Data Center (RDC)* of the faculty to remotely use their servers.
+    - Register the cluster with function **registerDoParallel()**. You can check the number of workers currently registered with **getDoParWorkers()**.
+    - After you are done using your workers, don't forget to tell them to go home for the day with function **stopCluster()**.
+2. Install and load package **foreach** that gives lapply-like functionality for sequential and parallel loops. It'll need some restructuring, can you manage to parallelize the nested model selection loops with function **foreach()** and operators **%:%** and **%dopar%**. Check out the **vignette()** for *foreach* and *%:%*.
+
+```{r}
+# Load necessary packages
+if(!require("doParallel")) install.packages("doParallel"); library("doParallel") # load the package
+if(!require("microbenchmark")) install.packages("microbenchmark"); library("microbenchmark") # load the package
+
+# Setup up parallel backend
+  # Detect number of available clusters, which gives you the maximum number of "workers" your computer has
+  nrOfCores <- detectCores()
+  cl <- makeCluster( max(1,detectCores()-1))
+  registerDoParallel(cl)
+  message(paste("\n Registered number of cores:\n",getDoParWorkers(),"\n"))
+  # Don't forget to stop the cluster when you don't need it anymore!
+  
+### Parallelization with foreach
+# This is the parallel version of the nested loop model selection.
+# Note that each of the workers is a fresh R instance without any variables or loaded packages
+# Foreach exports variables that occur in the code automatically, but we need to specify
+# the packages that need to be loaded on each worker
+timing.par <- system.time(
+# Loop over different number of nodes, i.e. size of the neural network
+results.par <- foreach(n = 1:length(nnet.sizes), .combine = cbind, .packages = c("caret", "nnet", "pROC")) %:%
+  # This is the cross-validation loop from before
+  foreach(i = 1:k, .combine = c, .packages = c("caret","nnet", "pROC")) %dopar%{
+    # Split data into training and validation
+    idx.val <- which(folds == i, arr.ind = TRUE)
+    cv.train <- train.rnd[-idx.val,]
+    cv.val <- train.rnd[idx.val,]
+    # Train the neural network model with a number of nodes n
+    neuralnet <- nnet(BAD~., data = cv.train, trace = FALSE, maxit = 1000, size = nnet.sizes[n])
+    # Build and evaluate models using these partitions
+    yhat <- predict(neuralnet, newdata = cv.val, type = "raw")
+    # We use our above function to calculate the classification error
+    auc(cv.val$BAD, as.vector(yhat))
+  }
+)
+
+# Don't forget to close the cluster after you are done
+stopCluster(cl)
+
+# Compare the required time for the sequential and the parallel loop
+print(timing.seq)
+print(timing.par)
+```

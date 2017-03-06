@@ -1,0 +1,15 @@
+% latex table generated in R 3.3.2 by xtable 1.8-2 package
+% Sat Feb 11 12:10:25 2017
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrrr}
+  \hline
+ & Min. & 1st Qu. & Median & Mean & 3rd Qu. & Max. \\ 
+  \hline
+x\_woe\_email\_domain & -0.16 & -0.01 & 0.01 & 0.00 & 0.04 & 0.18 \\ 
+  x\_woe\_payment & -0.29 & 0.07 & 0.09 & 0.01 & 0.09 & 0.09 \\ 
+  x\_woe\_x\_order\_date\_yearweek & -0.47 & -0.07 & 0.02 & 0.01 & 0.13 & 0.38 \\ 
+  x\_woe\_postcode\_invoice & -0.46 & -0.09 & -0.01 & 0.01 & 0.12 & 1.10 \\ 
+   \hline
+\end{tabular}
+\end{table}

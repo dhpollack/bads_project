@@ -1,0 +1,290 @@
+---
+title: 'Exercise 6 '
+subtitle: Business Analytics and Data Science WS16/17
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+# NEED FOR CHANGE ---- 
+# Note that this code will not work on your computer. 
+# if (!grepl("Dropbox/Lecture/Mod_BADS/Tutorial", getwd(), ignore.case = T)){
+#   setwd(paste0(getwd(), "/../Dropbox/Lecture/Mod_BADS/Tutorial"))  
+# }
+
+# You can uncomment the next line and specify the directory for the exercise on your computer
+setwd("C://Your/own/path")
+# End of NEED FOR CHANGE ----
+
+solution <- TRUE
+if(solution == FALSE){
+knitr::opts_chunk$set(echo = FALSE, results = 'hide', message = FALSE, warning = FALSE, fig.keep = 'none', cache = FALSE)
+}
+options(repos=c(CRAN = "https://cran.uni-muenster.de/"))
+```
+
+## Introduction
+In the last exercises, you have successfully constructed a range of models that seem to predict reasonably well on the data that they were trained on. Surprisingly well when considering that a fully grown decision tree was able to predict bad risks with an error close to 0! Before dropping the class to go into the banking business, the reasonable question to ask is "but how well does this model predict outcomes in the future?" or, in other words, if the model generalizes to other, yet unseen data. If not, we would have fallen into the trap of *overfitting* the training data. We will avoid this by withholding some of our data from the model during training and using that part of the data to check the performance of the model.
+In this exercise, we look at two approaches (*split sampling* and *cross-validation*) and several metrics (*confusion matrices*, *receiver-operating-characteristic* and *area-under-the-curve*) to measure and compare model performance.     
+We will use these approaches to answer two questions, where we will need a fresh data set for each question:
+- What is the best parameter choice for our model? We test this on the validation data. (Model selection)    
+- How well can our model be expected to perform on new data? We test this on the test data. (Model assesssment)    
+
+## Exercise 6.1: Split-sample testing
+1. Load the **loan data set** using our helper function (as before). Split your data randomly into a training set of 60%, a validation set of 20% and a test set of 20% by creating three new data frames **train**, **validation** and **test** to which you randomly assign the correct proportion of observations from data set **loans**. Hint: Check out function **sample()**.
+
+2. Train a logistic regression model **lr** and the decision trees from exercise 5 *on the training data only*. Use your models to make a prediction for the credit risk of the applicants *in the validation data set*.
+
+3. Compare the predicted outcomes to the actual outcomes on the validation data set and calculate the brier score. The fully grown decision tree classified the training data almost perfectly in Exercise 5, how does it perform on the unseen data? Which model is most accurate ?
+
+
+```{r}
+# Load necessary packages
+if(!require("rpart")) install.packages("rpart"); library("rpart") # Try to load rpart, if it doesn't exist, then install and load it
+# Link to the R script storing your function(s)
+source("BADS-HelperFunctions.R")
+loans <- get.loan.dataset()
+# If the previous line did not work on your machine, the most likely 
+# cause is that something with the file directories went wrong.
+# Check whether the data is available in your working directory. 
+
+# The exercise asks for a split-sample evaluation of the two classifiers.
+# a) Randomly split your data
+set.seed(124)
+n <- nrow(loans) 
+sample.size <- ceiling(n*0.8) # split point to partition into training and test set / size of the training data
+
+# Option 1:
+# Randomly draw a set of row indices 
+idx.train.opt1 <- sample(n, sample.size) # Draw a random sample of size sample.size from the integers 1:n
+train.opt1 <- loans[idx.train.opt1, ] # training set
+test.opt1 <-  loans[-idx.train.opt1, ] # test set (drop all observations with train indeces)
+idx.validation.opt1 <- sample(nrow(train.opt1), 0.25 * nrow(train.opt1)) # Draw a random sample of 25% (20% of the total data)
+validation.opt1 <- train.opt1[-idx.validation.opt1, ]
+train60.opt1 <- train.opt1[idx.validation.opt1, ]
+
+# Option 2: 
+# Draw a random stratified sample in which both train and test set have roughly the same ratio of the target classes.
+# Package caret has several very helpful functions to aid with data preparation
+# Its function creatDataPartition returns the indices of a stratified training set with size p * size of data.
+if(!require("caret")) install.packages("caret"); library("caret") # Try to load the package, if it doesn't exist, then install and load it
+idx.train <- createDataPartition(y = loans$BAD, p = 0.8, list = FALSE) # Draw a random, stratified sample including p percent of the data
+train <- loans[idx.train, ] # training set
+test <-  loans[-idx.train, ] # test set (drop all observations with train indeces)
+idx.validation <- createDataPartition(y = train$BAD, p = 0.25, list = FALSE) # Draw a random, stratified sample of ratio p of the data
+validation <- train[idx.validation, ]
+train60 <- train[-idx.validation, ]
+
+# Develop models using the training set and compute test set predictions
+dt      <-       rpart(BAD ~ ., data = train60)
+dt.full <-       rpart(BAD ~ ., data = train60, cp = 0, minsplit = 3) # low minimum increase or number of observations in node for a split to be attempted
+dt.prunedLess <- rpart(BAD ~ ., data = train60, cp = 0.005) # create decision tree classifier
+dt.prunedMore <- rpart(BAD ~ ., data = train60, cp = 0.015) # create decision tree classifier
+lr <-            glm(BAD~.    , data = train60, family = binomial(link = "logit"))
+
+modelList <- list("dt" = dt, "dt.full" = dt.full, "dt.prunedLess" = dt.prunedLess, "dt.prunedMore" = dt.prunedMore)
+yhat.dt <- lapply(modelList, function(x) predict(x, newdata = validation, type = "prob")[,2])
+yhat.lr <- predict(lr, newdata = validation, type = "response")
+yhat.benchmark <- rep(sum(train60$BAD == "good")/nrow(train60), nrow(validation))
+yhat.validation <- c(yhat.dt, list("lr" = yhat.lr, "benchmark" = yhat.benchmark))
+
+#  Assess predictive accuracy on the validation set
+y.validation <- as.numeric(validation$BAD)-1 # This is a good example of why you need to be careful when transforming factor variables to numeric
+# Define a function that computes the brier score when given a binary vector of outcomes and a vector of predicted probabilities
+BrierScore <- function(y, yhat){
+  sum((y - yhat)^2) / length(y) 
+}
+# Apply the brierScore function to each element of y.validation, i.e. all the prediction vectors
+brier.validation <- sapply(yhat.validation, BrierScore, y = y.validation, USE.NAMES = TRUE)
+print(brier.validation)
+
+# A convenient if-else construct that reports the findings in a human-readable fashion
+idx.best <- which.min(brier.validation)
+if (length(idx.best) == 1)  {
+  sprintf("Model %s predicts most accurately.", names(brier.validation)[idx.best])
+}else {sprintf("Two or more classifiers achieve the same level of accuracy.")}    
+# Go back and compare these scores that you calculated on the complete data set back in exercise 4
+
+```
+
+
+## Exercise 6.2: Performance measures
+1. Confusion matrix   
+A confusion matrix compares the target values in the data to the predictions made by the classification model by providing a count of correct and incorrent classifications per class. These values can in turn be used to calculate a range of performance measures, e.g. accuracy, specificity and sensitivity.
+Install package **caret**, which will help you to create readable cross-tables using the function **confusionMatrix()**. For the logit and pruned decision tree model above, plot the true values vs. the model prediction in a confusion matrix.
+Hint: Confusion tables require discrete class predictions and discrete target values. Choose a threshold value **tau** and transform you probability predictions to class predictions.
+ 
+2. ROC curves   
+Receiver operating characteristic curves, whose strange name is a remnant of their original use with radar systems in WWII, illustrates the performance of a binary classifier for different cut-offs (probability thresholds). For each cut-off **tau** between 0 and 1, it plots the true positive rate (a.k.a. sensitivity) against the false positive rate (a.k.a. 1 - specificity). Take a minute to see how these concepts relate to each other.   
+The resulting ROC curves lie between the 45° baseline (no predictive power) and the upper left corner of the plot. The further the ROC curve lies towards the corner, the more accurate the model. Again, take a minute to really understand why this is the case. Keep in mind that each point on the ROC curve visualizes the true and false positive rates given a value for the threshold **tau**.    
+Use package **hmeasure** to plot the ROC curves for the logistic regression *lr*, Naive Bayes *nb* and the pruned decision tree *dt*. The package requires the predictions to be in a data frame with one column for every model (call it **predictions**). Use the **HMeasure()** function to create an **HMeasure** object **h** containing all the necessary information for the plot. Then create the plot using function **plotROC()**.
+
+3. The Area Under the Curve (AUC)   
+The AUC is a way to quantify the performance of a classifier illustrated by the ROC curve in a single value. It represents the area under a ROC curve, so it takes on values between 0.5 and 1, where higher is better. Compute the AUC values for all ROC curves. HINT: Extract the AUC values from the **HMeasure** object. 
+
+```{R}
+# Install package caret and load it
+if(!require("caret")) install.packages("caret"); library("caret") # Try to load the package, if it doesn't exist, then install and load it
+
+# To produce confusion tables, we need discrete class predictions.
+# So far, our two classifier gave us probabilistic predictions.
+# Hence, we need to define a cut-off. Without additional information
+# how this should be done, we simply pick the default cut-off of 0.5
+tau <- 0.5
+# Deal with logistic regression:
+#  convert probability prediction to discrete class predictions
+yhat.lr.class            <- factor(yhat.validation$lr            > tau, labels = c("good", "bad"))
+yhat.dt.class            <- factor(yhat.validation$dt            > tau, labels = c("good", "bad"))
+yhat.dt.prunedMore.class <- factor(yhat.validation$dt.prunedMore > tau, labels = c("good", "bad"))
+
+# We can create a simple confusion table with base function table.
+# Using, for example, the logit classifier, this equates to:
+table(yhat.lr.class, validation$BAD)
+
+# Function confusionMatrix in the "caret" package gives a more readable confusion matrix
+# and automatically calculates several performance metrics
+confusionMatrix(data = yhat.lr.class, reference = validation$BAD, positive = "good")
+confusionMatrix(       yhat.dt.class,             validation$BAD)
+
+## ROC curves ####
+
+# Plot the ROC curves for logistic regression and a 
+#   decision tree (in the same chart). 
+
+# Now we can start with the plot. We use the hmeasure package. Alternativ
+# packages are pROC and ROCR
+if(!require("hmeasure")) install.packages("hmeasure"); library("hmeasure")
+# The hmeasure packages requires all predictions to be available in 
+# one data.frame
+predictions.roc <- data.frame(LR = yhat.validation$lr, DT = yhat.validation$dt, 
+                              DTprunedMore = yhat.validation$dt.prunedMore)  
+# Create on object of type hmeasure. This is basically the main
+# call when using the hmeasure package. The performs many different
+# tasks and wraps-up all results in one variable of type hmeausre.
+# Using this variable, we can draw different plots including an ROC curve
+h <- HMeasure(y.validation, predictions.roc) 
+plotROC(h, which = 1) # which = 1 says that we want an ROC curve; see the help system for more information
+# 3) Compute the AUC of the three classifiers
+#    Actually, this has already been done. We just need to extract the results
+#    from the hmeasure object
+h$metrics["AUC"]
+```
+
+## Exercise 6.3: Repeated cross-validation
+Split sampling is a simple approach and often used in practice. However, a large part of the data is "lost"" for model training and the results from split sampling depend on the random sample that is drawn for testing, i.e. for a different random sample the results are slightly different. More efficient use of the data and a more robust estimate of model performance can be achieved through k-fold cross-validation. For k-fold cross-validation, the data set is split into k subsets. Each fold is used as validation set once, while a  model is trained on the union of the remaining k-1 folds (as training set). In the end, the average performance is reported.
+
+1. Manually perform k-fold cross-validation of logistic regression without using a package for cross-validation. Specifically, split the data into k subsets of equal size. Write a loop that for each subset:
+    - trains the model on the remaining k-1 subsets.
+    - classifies the observations in the validation subset
+    - calculates the brier score and saves it to a vector **results** of length k. 
+    
+2. Visualize the model performance with a boxplot on the brier scores.
+
+
+```{r}
+#--------------------------------
+# DISCLAIMER
+#
+# The solution tries to illustrate the most important concepts 
+# to solve the task. To that end, clarity is more important than
+# robustness. Hence, you may see an error when executing the 
+# following codes. If you do, just rerun the code a few times. 
+# It should work in most cases.
+# The reason why you may see an error is that the random sampling
+# may leed to a training set that does not include all levels for the 
+# factor variables. For example, you may get a training set without 
+# any BAD risks. The same problem may occur - and is more likely - 
+# with the other factor variables (e.g., RES or EMPS_A). We can mitigate this
+# through revising our sampling approach, but this is beyond the scope
+# of this demo; there are nice sampling functions readily available to
+# take care of factors. We'll cover these in later exercises.
+
+# END OF THE DISCLAIMER
+
+#### k-fold cross-validation ####
+
+# We are explicitly asked to not use a black-box cross-validation routine
+# in some R package. However, just for your information, packages that support
+# cross-validation include DAAG, CARET, E1071
+
+# Note that the exercise did not specify which indicator we should use to
+# assess predictive performance. Here, we
+# use the MSE (i.e., Brier Score).
+
+# It is often useful to shuffle your data prior to drawing cross-validation samples.
+# To that end, we once more use the sample function; this time, however, without 
+# storing the indices
+train.rnd <- train[sample(nrow(train)),]
+# Create k folds of approximately equal size
+k <- 5
+folds <- cut(1:nrow(train.rnd), breaks = k, labels = FALSE)
+# The variable folds is a vector of integer values from 1 to k
+folds 
+# We can use this vector in a logical indexing expression to query the
+# training and validation data in every cross-validation iteration. 
+# Make sure to read the online help of the R function cut to fully understand
+# this approach
+?cut
+
+# Cross-validation loop
+# Vector to store results (i.e., performance estimates per CV iteration)
+results <- data.frame(lr = numeric(length = k), dt = numeric(length = k))
+# recall that we need a cut-off to calculate crisp classifications
+for (i in 1:k) {
+  # Split data into training and validation
+  idx.val <- which(folds == i, arr.ind = TRUE)
+  cv.train <- train.rnd[-idx.val,]
+  cv.val <- train.rnd[idx.val,]
+  # Build and evaluate models using these partitions
+  lr <- glm(BAD~., data = cv.train, family = binomial(link = "logit"))
+  dt.prunedMore <- rpart(BAD ~ ., data = cv.train, cp = 0.015) # create decision tree classifier
+  yhat.lr <- predict(lr, newdata = cv.val, type = "response")
+  yhat.dt <- predict(dt, newdata = cv.val, type = "prob")[,2]
+  # We use our above function to calculate the classification error
+  results[i, "lr"] <- BrierScore(as.numeric(cv.val$BAD)-1, yhat.lr)
+  results[i, "dt"] <- BrierScore(as.numeric(cv.val$BAD)-1, yhat.dt)
+}
+
+#-------------------------------------------------------------------
+# Excursus 
+#*******************************************************************
+# One way to improve the previous code would be to write a 
+# little helper function that performs the model building and 
+# evaluation. The benefit would be that we only need a single 
+# line instead of three (as above) to perform the three tasks
+# training, computing predictions, and assessing accuracy.
+# Here, we implemented the wrong classification rate as the
+# loss function
+# In particular, to develop such function:
+lr.helper <- function(Train = NULL, Val = NULL, Tau = 0.5) {
+  lr <- glm(BAD~., data = Train,family = binomial(link = "logit"))
+  yhat <- factor( predict(lr, newdata = data.val, type = "response") >= Tau, labels = c("GOOD", "BAD"))
+  tab <- table(as.numeric(Val$BAD) - 1, yhat)
+  return(1 - sum(diag(tab)) / sum(tab)) # Wrong classification rate
+}
+# we could then call the function as follows
+err <- lr.helper(data.train, data.val)
+# to obtain the performance statistics from an individual 
+# iteration of the cross-validation. 
+#*******************************************************************
+
+# Average performance ####
+# Finally, we are probably interested in the average performance
+# of our model across the cross-validation iterations. This is 
+# readily available as the mean classifcation error:
+cv.perf <- apply(results, 2, mean)
+cv.perf.sd <- apply(results, 2, sd)
+# Now plot the results
+txt <- paste("Classification brier score across", as.character(k), "folds", sep=" ")
+boxplot(results,  ylab="Brier Score", 
+        main = txt)
+
+# Note that we have till now not used the last 20% of our original data in any way.
+# Thus, we now estimate the expected prediction error on the test set
+y.test <- as.numeric(test$BAD)-1 # This is a good example of why you need to be careful when transforming factor variables to numeric
+yhat.test.lr <- predict(lr, newdata = test, type = "response")
+yhat.test.dt.prunedMore <- predict(dt.prunedMore, newdata = test, type = "prob")[,2]
+brier.test <- sapply(list("lr" = yhat.test.lr, "DT" = yhat.test.dt.prunedMore), BrierScore, y = y.test, USE.NAMES = TRUE)
+print(brier.test)
+```

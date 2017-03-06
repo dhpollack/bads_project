@@ -1,0 +1,7 @@
+Model,Average ROI (final validation),ROC Score (final validation)
+RF – Final Parameters,0.8368238468,0.6595066778
+RF – WOE,0.8247462418,0.6589299409
+RF – SMOTE,0.8282153411,0.6519205522
+RF – Feature Selection,0.7924964667,0.6451272374
+Logistic Regression,0.7864576641,0.6521189169
+Gradient Boosting,0.8283438263,0.6654474673

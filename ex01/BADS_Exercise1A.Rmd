@@ -1,0 +1,203 @@
+---
+title: "Exercise 1A"
+subtitle: Business Analytics and Data Science WS16/17
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# NEED FOR CHANGE ---- 
+# Note that this code will not work on your computer. 
+if (!grepl("Dropbox/Lecture/Mod_BADS/Tutorial", getwd(), ignore.case = T)){
+  setwd(paste0(getwd(), "/../Dropbox/Lecture/Mod_BADS/Tutorial"))  
+}
+
+# You can uncomment the next line and specify the directory for the exercise on your computer
+#setwd("C://Your/own/path")
+# End of NEED FOR CHANGE ----
+
+solution <- TRUE
+if(solution == FALSE){
+knitr::opts_chunk$set(echo = FALSE, results = 'hide', message = FALSE, warning = FALSE, fig.keep = 'none', cache = FALSE)
+}
+options(repos=c(CRAN = "https://cran.uni-muenster.de/"))
+```
+
+## A note on R Markdown
+
+This document is written in a format called R Markdown. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see http://rmarkdown.rstudio.com.
+It allows us to easily create a pdf file with the exercises, some readable code to give to you, and a nice html file with the solutions and outputs. It will also give you an idea on how to print nice html or pdf reports with R.
+
+After you receive the solutions, you will see that the R code for the solutions are so-called code chunks. When you click the **Knit** button in RStudio ("Knit HTML"), a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. If you want to create a pdf file, you will need to install LaTeX to your computer.
+
+We hope that this will be both easier for you to read in RStudio and easier to save or print.
+
+## Exercise 1.1: Packages and R Studio
+A variety of useful R packages are available at CRAN.
+
+1. Navigate to <http://cran.r-project.org/> and look for a package called rpart. Have a brief look into its documentation to learn about its functionality
+2. Use R Studio to download and install the package **rpart**
+3. Load the package using the **library** command
+4. Use the R help to query the functioning of the method **rpart**
+
+```{r, include = FALSE}
+#Use R Studio to download and install the package rpart
+install.packages("rpart")
+#Load the package using the library command
+library(rpart)
+#Use the R help to query the functioning of the method rpart
+help(rpart)
+```
+
+## Exercise 1.2: Variables and basic operations  
+1. Create two variables $a$ and $b$ and assign values of $3$ and $4.5$.
+2. Query the type of variable $a$.
+3. Check whether variable $b$ is a text variable (type character).
+4. Calculate $a^2 + \frac{1}{b}$, $\sqrt{a*b}$, and $log_2(a)$.
+
+```{r}
+#Create two variables a and b and assign values of 3 and 4.5
+a <- 3
+b <- 4.5
+# Check the data type of variable a
+typeof(a)
+#Check whether variable b is a text variable (type character)
+is.character(b)
+#Calculate 
+a^2+1/b
+sqrt(a*b)
+log(a,base = 2)
+# or alternatively
+log2(a)
+```
+
+## Exercise 1.3: Variables and basic operations
+Create three additional variables as follows:
+
+ $$ A = \left( \begin{matrix} 1 & 2 & 3 \\ 4 & 5 & 6 \\ 7 & 8 & 10 \end{matrix} \right) \quad
+  B = \left( \begin{matrix} 1 & 4 & 7 \\ 2 & 5 & 8 \\ 3 & 6 & 9 \end{matrix} \right)  \quad
+  y = \left( \begin{matrix} 1 \\ 2 \\ 3 \end{matrix} \right) $$
+
+Calculate  
+
+  1. $a*A$
+  2. $A*B$
+  3. The inverse of matrix $A$ and store the result in a variable $invA$
+  4. Multiply $A$ and $invA$ and verify that the result is the identity matrix
+  5. The transpose of matrix $B$
+  6. Fill the first row of matrix $B$ with ones
+  
+```{r}
+#Create three additional variables as follows:
+A <- matrix(c(1:8,10),nrow = 3, ncol = 3, byrow = TRUE)
+B <- matrix(c(1:9),nrow = 3, ncol = 3)
+y <- 1:3
+#Calculate a*A, A*B
+a*A
+A%*%B
+#The inverse of matrix  A and store the result in a variable  invA
+invA <- solve(A)
+#verify that the result is the identity matrix
+A%*%invA
+#The transpose of matrix  B
+t(B)
+#Fill the first row of matrix B with ones
+B[1,] <- c(1,1,1) # or alternatively
+B[1,] <- rep(x=1, times=dim(B)[2]) # or even simpler
+B[1,] <- 1
+```
+
+## Exercise 1.4: Variables and basic operations
+1. Check the values of variables $A$, $B$, and $y$ from exercise 1.3
+2. Access the second element in the third row of $A$ and the first element in the second row of $B$, and compute their product
+3. Multiply the first row of $A$ and the third column of $B$
+4. Calculate the least square estimator $\beta$  (we discuss the details in the lecture on regression) $$ \beta = (A^{\top}A)^{-1}A^{\top} y $$
+
+```{r}
+#Check the variables. Sidenote: A semicolon is equivalent to a new line
+A; B
+y
+#Access the second element in the third row of A and the first element 
+#in the second row of B, and compute their produc
+A[3,2] * B[2,1]
+#Multiply the first row of A and the third column of B
+A[1,]*B[,3]
+#Calculate the least square estimator
+beta = solve(t(A)*A)%*%y
+beta
+```
+
+## Exercise 1.5: Using inbuilt functions
+The density of the normal distribution with expected value $\mu$ and variance $\sigma$ is given as
+$$f(x | \mu ,\sigma ^{2}) = {\frac {1}{\sqrt {2\sigma ^{2}\pi}}}e^{-{\frac {(x-\mu )^{2}}{2\sigma ^{2}}}}$$
+
+1. The function **dnorm** implements the normal distribution in R. Find a way how to compute values of the standard normal distribution using this function.
+2. Calculate the value of the standard normal distribution (with $\mu=0$ and $\sigma=1$) at $x=-2, -1.8, \dots, +2$ and store the results in a variable **nvValues**
+3. Create a simple graph of the resulting values using the **plot** function
+
+```{r}
+x=seq(from=-2, to=2, by=0.2)
+#Calculate the value of the standard normal distribution (with mean=0 and sd=1) at x=-2, -1.8, ..., +2 and store the results in a variable nvValues
+nvValues=dnorm(x,mean=0,sd=1)
+#Create a simple graph of the resulting values using the plot function
+plot(x,nvValues,type="l",lwd=2,col="red")
+```
+
+## Exercise 1.6: Working with data.frames
+1. The UCI Machine Learning repository provides a large number of data sets relating to a variety of domains. Download the data set German Credit from the UCI Repository (use the version german.data as opposed to german.numeric)
+2. Load the data into a variable ger using the function **read.csv()**
+3. Note that you will have to set some function parameters to read the data properly
+4. Use  a text editor for a first examination of the data. Then check the help of **read.csv** and determine which parameters you have to set.
+5. Query the type of variable **ger**
+
+```{r}
+#Load the data into a variable ger using the function.
+# ASSUMPTION: data is available in working directory.
+ger <- read.table("german.data",header = FALSE, sep =" " )
+#Query the type of variable ger
+typeof(ger)
+```
+
+## Exercise 1.7: Working with data.frames
+The data set does not include column headers. However, a data dictionary is available in the file german.doc on the UCI website. 
+
+1. Read the data dictionary. Then identify an appropriate R function to set the column headers (i.e., variable names) in the data set
+2. Set all variable names in the data set and save the resulting data set to a CSV file named **GermanCredit.csv**
+3. Use appropriate R functions to answer the following questions
+      - What is the most frequent credit purpose? 
+      - What are the minimal, maximal and average credit amounts?
+      - What is the fraction of good and bad credit risks in the data set?
+  
+```{r}
+#Set all variable names in the data set
+colnames(ger) <- c("Status of existing checking account", "Duration","Credit history",
+                   "Purpose","Credit amount","Savings account/bonds",
+                   "Present employment since","Installment rate","Personal status and sex",
+                   "Other debtors/guarantors","Preset residence since",
+                   "Property","Age in years","Other installment plans","Housing",
+                   "Number of existing credits at this bank","Job"
+                   ,"Number of people being liable to provide maintenance for","Telephone",
+                   "foreign worker","class")
+#Save the resultingdata set to a CSV file named GermanCredit.csv
+write.table(ger,"GermanCredit.csv")
+#What is the most frequent credit purpose?
+names(sort(table(ger[,"Purpose"]), decreasing=TRUE)[1])
+
+#What are the minnimal, maximal and average credit amounts?
+min(ger[,"Credit amount"]) 
+max(ger[,"Credit amount"])
+mean(ger[,"Credit amount"])
+
+#What is the fraction of good and bad credit risks in the data set?
+#i)fraction of good risks
+sum(ger[,21] == 1)/nrow(ger)
+#ii)fraction of bad  risks
+sum(ger[,21] == 2)/nrow(ger)
+
+#Note that we can also use the column name, which was specified in the call to 
+#the function colnames in line 69. That is, we get the same result when writing  
+#the command in the following way, e.g., for good risks
+sum(ger$class == 1)/nrow(ger)
+```
+
+
+

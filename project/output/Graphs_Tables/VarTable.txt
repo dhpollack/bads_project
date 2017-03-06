@@ -1,0 +1,32 @@
+% latex table generated in R 3.3.2 by xtable 1.8-2 package
+% Sat Feb 11 12:09:18 2017
+\begin{table}[ht]
+\centering
+\begin{tabular}{rllll}
+  \hline
+ & persInfo & orderInfo & marketingInfo & serviceInfo \\ 
+  \hline
+1 & ID & order\_date & newsletter & payment \\ 
+  2 & form\_of\_address & account\_creation\_date & coupon & delivery \\ 
+  3 & title & deliverydate\_estimated & advertising\_code & giftwrapping \\ 
+  4 & email\_domain & deliverydate\_actual & referrer & cost\_shipping \\ 
+  5 & postcode\_invoice & goods\_value & points\_redeemed &  \\ 
+  6 & postcode\_delivery & weight & model &  \\ 
+  7 & return\_customer & item\_count &  &  \\ 
+  8 &  & remitted\_items &  &  \\ 
+  9 &  & canceled\_items &  &  \\ 
+  10 &  & used\_items &  &  \\ 
+  11 &  & book\_count &  &  \\ 
+  12 &  & paperback\_count &  &  \\ 
+  13 &  & schoolbook\_count &  &  \\ 
+  14 &  & ebook\_count &  &  \\ 
+  15 &  & audiobook\_count &  &  \\ 
+  16 &  & audiobook\_download\_count &  &  \\ 
+  17 &  & film\_count &  &  \\ 
+  18 &  & musical\_count &  &  \\ 
+  19 &  & hardware\_count &  &  \\ 
+  20 &  & imported\_count &  &  \\ 
+  21 &  & other\_count &  &  \\ 
+   \hline
+\end{tabular}
+\end{table}

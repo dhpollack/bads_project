@@ -1,0 +1,114 @@
+---
+title: "Exercise 1B"
+subtitle: Business Analytics and Data Science WS16/17
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# NEED FOR CHANGE ---- 
+# Note that this code will not work on your computer. 
+#if (!grepl("Dropbox/Lecture/Mod_BADS/Tutorial", getwd(), ignore.case = T)){
+#  setwd(paste0(getwd(), "/../Dropbox/Lecture/Mod_BADS/Tutorial"))  
+#}
+
+# You can uncomment the next line and specify the directory for the exercise on your computer
+ setwd("C://Your/own/path")
+# End of NEED FOR CHANGE ----
+
+solution <- TRUE
+if(solution == FALSE){
+knitr::opts_chunk$set(echo = FALSE, results = 'hide', message = FALSE, warning = FALSE, fig.keep = 'none', cache = FALSE)
+}
+options(repos=c(CRAN = "https://cran.uni-muenster.de/"))
+```
+
+## A note on R Markdown
+
+This document is written in a format called R Markdown. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see \mbox{http://rmarkdown.rstudio.com}.
+It allows us to easily create a pdf file with the exercises, some readable code to give to you, and a nice pdf with the solutions and outputs. It will also give you an idea on how to print nice html or pdf reports with R.
+
+After you receive the solutions, you will see that the R code for the solutions are so-called code chunks. When you click the **Knit** button in RStudio, a document will be generated that includes both content as well as the output of any embedded R code chunks within the document.
+
+We hope that this will be both easier for you to read in RStudio and easier to save as a pdf or print.
+
+## Exercise 1.1: Loading data into R
+1. Load the demo data set \texttt{Loan\_Data.csv} into a data.frame using an appropriate R function.
+2. Check the data type of the columns \texttt{PHON} and \texttt{BAD} in the data set. Is this data type appropriate? If not, convert the variables into a more suitable data type. 
+3. Make sure that values of \texttt{PHON} and \texttt{BAD} are, respectively, yes/no and good/bad.
+4. Summarize the distribution of all columns in the data set using an appropriate R function. Remember that you can easily find appropriate functions and code snippets via the R help or Google. Every programmer constantly does this, so you should, too.
+
+
+```{r, include = FALSE}
+# Load the data set into memory.
+# Note that you need to change the path when executing the code on your computer
+loans <- read.csv("Loan_Data.csv", sep=";")
+# Check the type of PHON and BAD
+class(loans$PHON); class(loans$BAD);
+# Make both a factor
+loans$PHON <- factor(loans$PHON, labels=c("no", "yes"))
+loans$BAD <- factor(loans$BAD, labels=c("GOOD", "BAD"))
+# Summary of the data set
+summary(loans)
+```
+
+## Exercise 1.2: Plotting a histogram
+1. Create a histogram plot that depicts the distribution of BAD. Don’t be surprised if your first attempt fails. This only shows that your solution to task 2 in exercise 1 was correct. Strangely, the \texttt{hist()} function requires numeric data.  We could find a better function to do the plotting. Yet, in this exercise, let’s do something else: Without changing your data.frame, simply convert \texttt{BAD} back to a numeric variable in the call of the \texttt{hist()} function.
+2. The \texttt{hist()} function gives us a way to plot the distribution of one variable in a data.frame. There is an alternative function that allows you to create a histogram plot for all variables in a data.frame. Which function is that? Hint: You will need to install package \texttt{Hmisc}.
+3. Use the function identified in task 2 to depict the distribution of all variables in a matrix of histograms.
+
+
+```{r}
+par(mar=c(1,1,1,1)) # this code avoids some errors related to screen resolution; feel free to ignore it
+hist(as.numeric(loans$BAD))
+# Matrix of histograms
+install.packages("Hmisc")
+library("Hmisc")
+hist.data.frame(loans)
+```
+
+## Exercise 1.3: Statistical analysis
+Recall that the column BAD gives the risk status (good or bad) for each applicant. Applicants’ income is available in the column \texttt{dINC\_A}. To separate the good and the bad risks in the data.frame, you can use logical indexing (with variable[index] and matrix[row index, column index]).
+
+1. Create two variables, inc.good and inc.bad, which contain the incomes of good and bad credit risks, respectively. You will need to use logical indexing to select the correct rows and data.frame indexing to select the right column.
+2. Depict the distribution of the income of customers with a good and bad risk, respectively, by means of a boxplot. Try Google or search the R help with \texttt{??boxplot}. On average, which of the two groups earns more? 
+3. Calculate the difference between the average/*mean* income of good and bad credit applicants.
+4. Identify an appropriate statistical test to verify whether the observed income difference is statistically significant. Perform the test and display its results. Hint: A Google search similar to ``R statistical test difference in means'' will help.
+5. Assign the test result to a variable. Use the print() function to output a message that tells the user whether the observed income difference is significant. You can do this with an \texttt{if()} condition by checking the the *list entry* \texttt{p.value} contained in the test result.
+
+Well done, you have completed your first statistical analysis with R!
+
+  
+```{r}
+# Separate the goods and the bads using logical indexing
+inc.good <- loans[loans$BAD=="GOOD", "dINC_A"]
+avg.good <-mean(inc.good)
+inc.bad <- loans[loans$BAD=="BAD", "dINC_A"]
+avg.bad <-mean(inc.bad)
+# Boxplot
+boxplot(inc.good, inc.bad, 
+        ylab="Applicants income [$]",
+        names=c("Good","Bad"),
+        main="Income distribution of credit applications")
+# Check who makes more
+if (avg.good>avg.bad) {
+  print("The good risks earn more on average")
+} else if (avg.bad>avg.good) {
+  print("The bad risks earn more on average")
+} else {
+  print("Actually, there is no difference in the average income")  
+}
+# Work out the difference
+sprintf("The difference between the average incomes of good and bad risks is $%.2f",
+        avg.good-avg.bad,2)
+# Perform Welch test
+test.result <-t.test(inc.good,inc.bad)
+test.result 
+if (test.result$p.value < 0.05) {
+  print("Observed income difference is significant")
+} else {
+  print("Observed income difference is not significant")
+}
+```
+
+
+

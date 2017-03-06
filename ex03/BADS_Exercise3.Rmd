@@ -1,0 +1,207 @@
+---
+title: "Exercise 3"
+subtitle: Business Analytics and Data Science WS16/17
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# NEED FOR CHANGE ---- 
+# Note that this code will not work on your computer. 
+#if (!grepl("Dropbox/Lecture/Mod_BADS/Tutorial", getwd(), ignore.case = T)){
+#  setwd(paste0(getwd(), "/../Dropbox/Lecture/Mod_BADS/Tutorial"))  
+#}
+
+# You can uncomment the next line and specify the directory for the exercise on your computer
+ setwd("C://Your/own/path")
+# End of NEED FOR CHANGE ----
+
+solution <- TRUE
+if(solution == FALSE){
+knitr::opts_chunk$set(echo = FALSE, results = 'hide', message = FALSE, warning = FALSE, fig.keep = 'none', cache = FALSE)
+}
+options(repos=c(CRAN = "https://cran.uni-muenster.de/"))
+```
+
+## Introduction
+Data visualization can be a great tool to analyze vast amounts of data. R provides some very nice tools for visualization. For example, the base version of R has several functions to plot data such as **plot**. Corresponding charts can look look pretty good, if options of **plot** are set in a suitable way. However, for professional charts, the package **ggplot2** is recommended and we will use that package for this exercise.
+
+**ggplot** follows a so-called *grammer of graphics*. This means that you build a graph structure-by-structure with '+' in between layers. For your first steps, it is sufficient to know that 1) **ggplot()** in combination with **aes()** specifices the general data and aesthetics of a plot, e.g. the axis labels. It has the form **ggplot(data = *your.data*, aes(*options*))**. A range of functions starting with **geom_** (e.g. **geom_point()**) are used to add data to the plot layer by layer in the form of, for example, **+ geom_point(*optional options*)**.
+
+## Exercise 3.1: Data visualization with ggplot2
+Let's start with an example to see how **ggplot2** works. Make sure you have installed and loaded package **ggplot2**. 
+
+1. Load the original loans data set **loans_data.csv** available on the course page into data frame **loans**. Change variables **YOB, PHON, BAD** to class factor.
+2. Run **ggplot(data = loans, aes(x = dINC_A, y = dINC_SP))** and look at the resulting plot. The structure is there, but the information is missing!
+2. Try the following command **ggplot(data = loans, aes(x = dINC_A, y = dINC_SP)) + geom_point()** and look at the resulting plot. **Point**s are now drawn onto the plot frame!
+3. Make sure you understand the input in **aes()** and the roles of the two parts of the function separated by the plus. After specifying a data frame as data, you can use variable names from that data frame directly and without quotation marks in the function call (here: **dINC_A** instead of **loans$dINC_A**). 
+4. Add **+ geom_smooth(method=lm)** after the command and run it again to add another layer to the original plot. What have you added?
+
+```{r}
+#Read in the data set
+loans <- read.csv("Loan_Data.csv", sep = ";", header = TRUE)
+loans[,c("YOB", "PHON", "BAD")] <- lapply(loans[,c("YOB", "PHON", "BAD")] , factor)
+# install and load package ggplot2
+#install.packages("ggplot2")
+library("ggplot2")
+# Specify the data to be used and the relevant variables in function ggplot
+# Then add the layers of data visualization on the base of this data
+ggplot(data = loans, aes(x = dHVAL, y = dOUTM)) + geom_point()
+# You can add more than one layer of visualization, e.g. an additional regression line (lm = linear model).
+ggplot(data = loans, aes(x = dHVAL, y = dOUTM)) + geom_point() + geom_smooth(method=lm)
+```
+
+## Exercise 3.2: Outlier detection
+
+1. Look at the *summary* of the data set again. It looks like at least one applicant has a very high income compared to the others (**dINC_A**). 
+1. Create a *histogram* for **dINC_A** using ggplot's **geom_histogram()** function. Remember to specify the data and variable in function **ggplot()** and add (**+**) the histogram layer.
+3. The distribution suggests that there might be outliers at the far end. Use the base R function **boxplot()** to plot a boxplot to better visualize potential outliers. Note: **ggplot**'s **geom_boxplot()** requires a variable on the x-axis, which is useful to compare boxplots between groups, but requires some work-around when plotting a single boxplot. You can use **aes(x = 1, y = *variable*)**.
+2. A small number of applicants have very high incomes \texttt{dINC\_A}. This is plausible, but may have a high impact on our prediction. Truncate these values based on 1.5 times the interquartile range (IQR), i.e. replace values that are higher than $1.5 \times IQR$ by the 75% quantile value. Hint: Function **summary()** calculates the quartiles. Try saving its values to a variable.
+
+```{r}
+# Summarize the data
+summary(loans)
+# Create a histogram for variable
+# You can select the number of bins with option 'bin'.
+ggplot(loans, aes(x = PHON)) + geom_histogram()
+# Function geom_histogram can also be used to plot the density instead of the count, as explained in the help text.
+# Let's also look at the kernel density function, which smoothes the histogram to a line.
+ggplot(loans, aes(x = dINC_A)) + geom_histogram(aes(y = ..density..), bins = 50) + geom_density()
+
+## Create boxplots to visualize potential extreme values and outliers
+# For a single boxplot, the base R function is recommended for simplicity.
+boxplot(loans$dINC_A)
+# ggplot can be used to easily compare several boxplots 
+ggplot(loans, aes(x = BAD, y = dINC_A)) + geom_boxplot(outlier.colour = "red")
+
+## Truncate values above 1.5*IQR (i.e., outliers)
+# Find the quartile values and the inter-quantile-range IQR
+lower.quartile <- as.numeric(summary(loans$dINC_A)[2])
+upper.quartile <- as.numeric(summary(loans$dINC_A)[5])
+IQR <- upper.quartile - lower.quartile
+# Calculate upper bound value
+upper.bound <- upper.quartile + 1.5*IQR
+message("Upper bound on applicants income is ", upper.bound )
+# Use logical indexing to identify outliers and replace  with upper bound
+loans$dINC_A[ loans$dINC_A > upper.bound ] <- upper.bound
+# Recheck your results with the summary function. Maximum of the income distribution will be equal to upper bound
+summary(loans$dINC_A)
+```
+
+## Exercise 3.2: (Near-perfect Multi-)Correlation
+For many machine learning algorithms, high correlation between variables does not prohibit estimation, but estimation of variable importance and effect size will be affected.
+
+1. Calculate a correlation matrix of the loans variables and save it to **cmatrix**. Note that the standard correlation function **cor()** calculates correlation only for numeric variables, so you will need to select these from the data frame. Print the results to the console to look at the correlations. Hint: You want to check if each of the columns *is numeric*. Remember the **apply()** function family.
+2. Instead of just showing the correlation values, there is a way to visualize the results very nicely with a correlation plot. Install package **corrplot**. Find a function to plot the correlation in the package and plot the correlation between variables.
+
+```{r}
+# Calculate the correlation matrix
+# We select the numeric variabels inside of the function by applying function is.numeric to each element of dataframe loans (i.e. each variable)
+idx_numeric <- sapply(loans, is.numeric)
+cmatrix <- cor(loans[, idx_numeric])
+# Look at the correlation matrix
+print(cmatrix)
+# Install the package "corrplot"
+install.packages("corrplot")
+library(corrplot)
+# Create a plot of your correlation matrix 
+corrplot(cmatrix)
+# The size of the dots indicates how strong the variables correlate with each other, while the color shows direction
+```
+
+## Exercise 3.3: k-means Clustering
+Clustering is a popular approach for unsupervised learning. A standard method used in many data mining applications is k-means clustering (see Chapter 2).
+
+1. Cluster the data into 5 groups using the k-means algorithm and increase the maximum number of iterations to 50. Look at the *structure* of the result object and extract a vector **clusters** indicating the cluster identity for each observation. Note that the standard k-means algorithm only works for numeric variables, so you will have to select these.
+2. The k-means algorithm requires that you specify the number of clusters beforehand. We can empirically test which number of clusters will give the best 'fit'. Let's say we want to test between 1 and 15 clusters using a loop. To loop over the number of clusters, k, create a vector **k.settings** with the values 1 to 15. Also create an empty vector **obj.values** with the length of **k.settings** to store the results. Then, loop over the numer of values in **k.settings** and, for each **i**, perform the following steps in the body of the for-loop:
+    1. Calculate the k-means clusters for the number of clusters given in **k.settings[i]** and save the results in an object *cluster solution* **clu.sol**.
+    2. This object is a list with, among others, an element **tot.withinss**. Extract the within-cluster sum-of-squares from **clu.sol** and save the result to the result vector at position i **obj.values[i]**.
+3. Plot the results with the number of clusters on the x-axis and the within-cluster sum-of-squares on the y axis. What is the optimal number of clusters according to the elbow criterion?
+
+```{r}
+## Find numeric variables
+# The clustering done in this exercise works only for numeric variables. Therefore, we will select these variables from the data frame by their index.
+idx_numeric <- sapply(loans, is.numeric)
+
+## Standardization 
+# The euclidean distance used by default for k-means clustering is sensitive to differences in scale and variance of the variables. Therefore the data should be standardized before clustering.
+# Custom function for standardization build in Exercise 2
+standardize <- function(x){
+  # This is called the 'body' of the function
+  # The variables used here must be handed to the function in the function call
+  # Objects that are created in the function call are not saved to the environment
+  mu <- mean(x)
+  std <- sd(x)
+  result <- (x - mu)/std
+  # Return ends the function and outputs the result
+  # A list can be returned to output more than one result
+  return(result)
+}
+loans[,idx_numeric] <- lapply(loans[,idx_numeric], standardize)
+
+## Clustering
+# The initial centroids are selected at random and their choice can influence the cluster that are ultimately found
+# Therefore, two things are good practice:
+# 1. Fix the 'seed' of the random number generator used to select the initial clusters. This ensures reproducability, 
+# since the generator will find the same pseudo-random numbers at every run.
+# 2. Run the clustering approach several times with different initial clusters. Option nstart does this automatically and reports the 'best' result.
+set.seed(123)
+
+# Cluster the observations based on their numeric features into 5 groups
+# The maximum number of iterations is set to 50. The algorithm will stop after the 50th iteration, even if the solution is not stable
+cluster.object <- kmeans(loans[,idx_numeric], centers = 5, iter.max = 50, nstart = 25)
+# The result is a list describing the cluster solution
+str(cluster.object)
+clusters <- cluster.object$cluster
+
+# Define a vector with candidate settings for k (good practice)
+k.settings = 1:15
+# Define another variable to store the results. Here, we have two options:
+# i)  only store the objective values corresponding to individual settings of k, or
+# ii) store the complete cluster solutions corresponding to individual settings of k
+# For option i) we need a vector that can store numeric data. For ii) we need to store a set of objects
+obj.values = vector(mode="numeric", length = length(k.settings)) # results for i)
+cluster.models = vector(mode = "list", length = length(k.settings)) # results for ii)
+# Note that it is always a good practice to first initialize a vector, before assigning some data to it (although R does allow you to create variables on-the-fly)
+for (i in 1:length(k.settings)) {
+  # Create a cluster solution using the current setting of k
+  clu.sol <- kmeans(loans[,idx_numeric], centers=k.settings[i], iter.max = 50, nstart = 100)
+  # Option i) we only store the objective value
+  obj.values[i] <- clu.sol$tot.withinss
+  # Option ii) we store the full cluster model (i.e., object)
+  cluster.models[[i]] <- clu.sol 
+  # Remark: it is not straightforward to see why we must use [[]] in the above line. 
+  # It has to do with the fact that cluster.models stores objects of type list and that clu.sol is also of type list. So we are dealing with lists of lists. 
+  # If you wish to know more you can find some useful info at http://www.r-tutor.com/r-introduction/list
+}
+# Create the plot
+par(mar=c(1,1,1,1)) # to make sure the plot works on a small screen
+plot(k.settings, obj.values, xlab = "k", ylab="Total within-cluster SS",
+     main = "Elbow curve for k selection", col="red", type = "b")
+
+## Remark ####
+# if you did not implement option i) above but only option ii), then we would now need another for-loop to traverse the individual items in our list cluster.models and extract the objective value.
+obj.values = vector(mode="numeric", length = length(cluster.models)) # as above
+for (i in 1:length(cluster.models)) {
+  obj.values[i] <- cluster.models[[i]]$tot.withinss
+}
+# The above approach goes beyond what is needed to solve the exercise. The advantage is that you store all information about a cluster solution, not
+# only the objective; as in option i)
+
+## Last, here is an "elegant R-like way" to avoid the loop using apply. ####
+# It is an alternative to the above approach with for and gives the same result. 
+
+# This is the alternative to option i) 
+my.kMeans <- function(k) {  
+  clu.sol <- kmeans(loans[,idx_numeric], centers=k) 
+  return(clu.sol$tot.withinss)
+}
+obj.values <- sapply(k.settings, my.kMeans)
+
+# This is the alternative to option ii) 
+cluster.models <- lapply(k.settings, function (k) kmeans(loans[,idx_numeric], centers=k))
+# Note that many R programmers do often not bother to first create a user-defined
+# function and put it directly into the call to apply, as is shown above. This works
+# well if the user-defined function consists of a single statement (also as above).
+# It is clearly not a very readable way to write code, but, as said, is very common
+# in the R community
+```

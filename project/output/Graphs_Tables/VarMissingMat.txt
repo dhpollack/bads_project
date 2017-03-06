@@ -1,0 +1,13 @@
+% latex table generated in R 3.3.2 by xtable 1.8-2 package
+% Sat Feb 11 12:10:18 2017
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrr}
+  \hline
+ & form\_of\_address & account\_creation\_date & postcode\_delivery & weight \\ 
+  \hline
+traintest & 6866 & 3412 &  & 3947 \\ 
+  handin & 1650 & 867 & 12412 & 985 \\ 
+   \hline
+\end{tabular}
+\end{table}

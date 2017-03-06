@@ -1,0 +1,207 @@
+---
+title: "Exercise 8"
+subtitle: Business Analytics and Data Science WS16/17
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+# NEED FOR CHANGE ---- 
+# Note that this code will not work on your computer. 
+if (!grepl("Dropbox/Lecture/Mod_BADS/Tutorial", getwd(), ignore.case = T)){
+  setwd(paste0(getwd(), "/../Dropbox/Lecture/Mod_BADS/Tutorial"))  
+}
+
+# You can uncomment the next line and specify the directory for the exercise on your computer
+# setwd("C://Your/own/path")
+# End of NEED FOR CHANGE ----
+
+solution <- TRUE
+if(solution == FALSE){
+knitr::opts_chunk$set(eval = FALSE, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE, fig.keep = 'none', cache = FALSE)
+}
+options(repos=c(CRAN = "https://cran.uni-muenster.de/"))
+```
+
+## Introduction
+The random forest is a tree-based classifier that performs competitively in many applications. As explained in the lecture, it is a combination of decision trees (**forest**) grown on random subsets of the feature space (**random**). Simply speaking, a large number of decison trees are (almost) fully grown but at each split only a (usually small) number of variables is randomly chosen as candidates for the split to make the trees more different.        
+In this exercise, we will use package **caret** to train a random forest, but will also see one of the boundaries of the package. Consequently, we will explore the benefit of replacing caret by a little infrastructure of our own here.
+
+## Exercise 8.1: Random forest with caret
+1. Install the **caret** and **randomForest** package and load the data set loans. Split it into training and test set with a ratio of 80:20 as done in the previous exercises. 
+2. Load package **caret** and create an object model.control which contains the setup for the model estimation framework. Check the help and set the following control parameters in **trainControl()**:     
+    - (Unrepeated) 5-fold cross-validation
+    - Class probabilities should be calculated
+    - **twoClassSummary** as **summaryFunction** 
+as done in the previous excercise. 
+3. Specify the variable values compared during model selection in an object **rf.parms**. The standard random forest algorithm in **caret** can be tuned over the number of variables tried at each split (option **mtry**), e.g. 1 to 5
+4. Tune the random forest and save the best model in a variable **rf**. Compare the performance of the candidate models.
+Recall: The  **train()** function allows you to do model tuning in one call. Specify the random forest method and (as done in the previous exercise) ROC as metric to be used to compare on AUC values. 
+5. In line with the previous exercise, predict **yhat.rf** and evaluate the model performance **auc.rf** on the test set using the AUC.             
+
+
+```{r}
+#Install and load "caret" and "randomforest"
+if(!require("caret")) install.packages("caret"); library("caret") # load the package
+if(!require("randomForest")) install.packages("randomForest");
+source("../helpfuncs/helpfuncs.R")
+
+loans <- get.loan.dataset("../data/Loan_Data.csv")
+ 
+# Spliting the data into a test and a training set
+# The following  draws a random, stratified sample including p = 80% percent of the data
+idx.train <- createDataPartition(y = loans$BAD, p = 0.8, list = FALSE) 
+
+# Assign the train set by index
+train <- loans[idx.train, ] 
+# Assign the test set, where all observations with train indeces are excluded
+test <-  loans[-idx.train, ] 
+
+## Specify the number of folds
+# Remember that each candidate model will be constructed on each fold
+k <- 3
+# Set a seed for the pseudo-random number generator
+set.seed(123)
+
+### Initialize the caret framework
+# This part specifies how we want to compare the models
+# It includes the validation procedure, e.g. cross-validation
+# and the error metric that is return (summaryFunction)
+# Note: You can look into the summaryFunctions to see what
+# happens and even write your own
+# Try: print(twoClassSummary)
+badSummary <- function(data, lev = NULL, model = NULL) {
+  cm <- matrix(c(3, -10, 0, 0), nrow = 2)
+  n <- nrow(data)
+  x = foreach(t = seq(0.01, 0.99, 0.01)) %do% {
+    res <- factor(ifelse(data[,3] > t, lev[1], lev[2]), levels = lev)
+    sum(table(data[,2], res)*cm)/n
+  }
+  threshold <- seq(0.01, 0.99, 0.01)[which.max(x)]
+  BADS <- x[[which.max(x)]]
+  out <- c(BADS, threshold)
+  names(out) <- c("BADS", "threshold")
+  out
+}
+
+model.control <- trainControl(
+  method = "cv", # 'cv' for cross validation
+  number = 5, # number of folds in cross validation
+  classProbs = TRUE, # Return class probabilities
+  summaryFunction = badSummary, # twoClassSummary returns AUC
+  allowParallel = TRUE # Enable parallelization if available
+  )
+
+# Define a search grid of values to test for a sequence of randomly
+# sampled variables as candidates at each split
+rf.parms <- expand.grid(mtry = 3:5)
+
+# Train random forest rf with a 5-fold cross validation 
+rf.caret <- train(return_customer~item_count+newsletter+weight+remitted_items+x_advertising_code_bin, 
+                  data = trainset,
+                  method = "rf", ntree = 50, tuneGrid = rf.parms, 
+                  metric = "BADS", trControl = model.control)
+
+# Compare the performance of the model candidates
+# on each cross-validation fold
+rf.caret$results$BADS
+plot(rf.caret)
+
+# Predict the outcomes of the test set with the predict function, 
+# i.e. the probability of someone being a bad risk
+yhat.rf.caret   <- predict(rf.caret, newdata = trainset[,c("item_count", "newsletter", "weight","remitted_items", "x_advertising_code_bin")], type = "prob")[,2]
+
+# As done in previous exercises, the AUC is computed in order to evaluate our model performance. 
+if(!require("pROC")) install.packages("pROC"); library("pROC") # load the package
+auc.caret <- auc(test$BAD, yhat.rf.caret) 
+auc.caret
+
+```
+
+## Exercise 8.2: Random forest without caret
+As you saw in the lecture and in the train call above, random forest models have another parameter to be specified: **ntree**, the number of trees in the combination. Following the intuition "more is better", caret does not consider this a tuning paramter for which candidate models can automatically be compared. We will build our own framework, or extend the cross-validation framework from earlier, to tune over both parameters.
+
+1. Build a framework to tune the number of randomly sampled variables at each split **mtry** and the number of trees you need to grow **ntree**. To do this, initialize a grid **rf.parGrid** containing the values of **mtry** and **ntree** that you want to compare. Try 1 to 10 variables sampled for each split and between 100 and 1000 trees.
+2. As in previous exercises, use the **cut()** function for gain a vector *folds* of indices that separate the training data into 5 folds of equal size.
+3. Analogeously to the previous exercise, create two loops, one within the other, that perform the following:
+    - For each mtry-ntree combination candidate *n*:
+        - For each fold *k*:
+            - Train a random forest model **rf** with **ntree** and **mtry** equal to the *n*-th candidate of the tuning grid on the folds not including fold *k*.
+            - Predict the outcomes for the current validation fold, compute the AUC values on the validation fold, and save this value. Recall: Function **auc()** from package **pROC** does this quickly.    
+Note: The above structure is called pseudo-code. Before you work on complicated pieces of code, always outline the structure of what you are planning to do in written form to make sure that you have a working plan on what you are trying to do and will not get lost in the middle of your work.
+4. Calculate the average AUC value (over five folds) for each parameter combination. Find the best combination.
+5. Train a random forest model with the best parameters on the full training sample and save the model to **rf.tuned**.
+6. Compare the best performing trees found with caret to the best tree tuned over mtry *and* ntree. You can look at the overall results to investigate the impact of the number of trees on the model for this data set.
+
+```{r}
+if(!require("randomForest")) install.packages("randomForest"); library("randomForest") # load the package
+if(!require("foreach")) install.packages("foreach"); library("foreach") # load the package
+
+# Randomize the training set with the sample() function and use cut() to split the data into 5 equal folds.
+train.rnd <- sample(nrow(train)) # scramble the indices
+folds <- cut(1:nrow(train), breaks = k, labels = FALSE) # separate scrambled indices into k folds
+
+### Create a list of vectors that contain the indices of the observation of each training and test fold
+# Loop over i with lapply:
+# Select the randomized indices that are not in the i-th validation fold and put them into a list element
+folds.trainRowIndices <- lapply(1:k, function(x) train.rnd[which(folds != x)])
+# Loop over the list elements with lapply:
+# Select the indices that are not in the training set and put them into a list element
+folds.validationRowIndices <- lapply(folds.trainRowIndices, function(x) setdiff(1:nrow(train), x))
+
+# Define a grid of candidate paramters, one combination per line  
+rf.parGrid <- expand.grid(mtry = 1:10, ntree = seq(400, 1000, 100))
+
+# For each combination of candidate parameters perform k-fold CV 
+# Loop over the parameter cominations. Look up %:% (vignette("nested")) for nested loops with foreach
+# Alternatively, we could use two for-loops: for(i in 1:nrow(rf.parGrid)){for(j in 1:k){*training code*}}
+results <- foreach(i = 1:nrow(rf.parGrid), .combine = rbind, .packages = c("caret", "randomForest", "pROC")) %:%
+  # Below this is the cross-validation loop from before 
+  foreach(j = 1:k, .combine = c, .packages = c("caret","randomForest", "pROC")) %do%{
+    ### For each parameter set and fold: Train a model with the parameters on the fold data and calculate AUC
+    # Splitting the data into training and validation
+    cv.train <- train[folds.trainRowIndices[[j]],]
+    cv.val <- train[folds.validationRowIndices[[j]],]
+    
+    # Train the random forest model with the i-th parameter set
+    rf <- randomForest(BAD~., data = cv.train, mtry = rf.parGrid$mtry[i], ntree = rf.parGrid$ntree[i])
+    # Predict the probabilities for the CV validation data
+    yhat <- predict(rf, newdata = cv.val, type = "prob")[,2]
+    # Calculate and return the AUC value for the current validation fold
+    auc <- auc(cv.val$BAD, yhat)
+    return(auc)
+}
+
+# Calculate the average AUC value over the k folds for each mtry-ntree combination
+results.foldAverage <- rowMeans(results) # Could also use the more general apply(results , MARGIN = 1, mean)
+names(results.foldAverage) <- paste(rf.parGrid[,1], rf.parGrid[,2], sep = "-")
+
+# Compare results of caret and our tuned RF
+idx.best.tuned <- which.max(results.foldAverage)
+rf.tuned <- randomForest(BAD~., data = train, mtry = rf.parGrid$mtry[idx.best.tuned], 
+                         ntree = rf.parGrid$ntree[idx.best.tuned])
+yhat.rf.tuned <- predict(rf.tuned, newdata = test, type = "prob")[,2]
+auc.tuned <- auc(test$BAD, as.vector(yhat.rf.tuned))
+
+message("The best tuning parameters are:\n", 
+        "For caret:\n",
+        "mtry: ", rf.caret$bestTune, " with ntree: ", rf.caret$finalModel$ntree, "\n",
+        "For ntree tuning: \n",
+        "mtry: ", rf.parGrid[idx.best.tuned,1], "\nntree: ", rf.parGrid[idx.best.tuned,2])
+
+# Tree Comparison by comparing the AUC values of the random forest tuned only over mtry and
+# tuned over mtry and ntree
+if (auc.caret < auc.tuned){
+  sprintf("The tuned random forest predicts more accurately.")
+} else {
+  if (auc.caret > auc.tuned) {sprintf("The random forest prediction with caret is more accurate.")}
+  else {sprintf("Both model estimation methods achieve the same level of accuracy.")}    
+}
+
+### Use results to draw a 3D surface plot over mtry and ntree to visualize performance for different combinations
+# Note: Lattice is a graphics package that also lets you plot grids of plots
+# Function wireframe() lets you plot a 3D object
+if(!require("lattice")) install.packages("lattice"); library("lattice") # load the package
+wireframe(results.foldAverage~ mtry * ntree, data = cbind(rf.parGrid, results.foldAverage), drape = TRUE, pretty = TRUE, screen = list(z= -45, x = -45))
+```

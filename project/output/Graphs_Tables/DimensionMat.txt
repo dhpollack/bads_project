@@ -1,0 +1,13 @@
+% latex table generated in R 3.3.2 by xtable 1.8-2 package
+% Sat Feb 11 12:09:18 2017
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrr}
+  \hline
+ & NObs & NVar \\ 
+  \hline
+traintest & 51884 &  38 \\ 
+  handin & 12971 &  37 \\ 
+   \hline
+\end{tabular}
+\end{table}

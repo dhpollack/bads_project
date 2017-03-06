@@ -1,0 +1,152 @@
+---
+title: "Exercise 2"
+subtitle: Business Analytics and Data Science WS16/17
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+# NEED FOR CHANGE ---- 
+# Note that this code will not work on your computer. 
+# Comment it out by placing # before it
+#if (!grepl("Dropbox/Lecture/Mod_BADS/Tutorial", getwd(), ignore.case = T)){
+#  setwd(paste0(getwd(), "/../Dropbox/Lecture/Mod_BADS/Tutorial"))  
+#}
+
+# You can uncomment the next line and specify the directory for the exercise on your computer
+ setwd("C://Your/own/path")
+# End of NEED FOR CHANGE ----
+
+solution <- TRUE
+if(solution == FALSE){
+knitr::opts_chunk$set(echo = FALSE, results = 'hide', message = FALSE, warning = FALSE, fig.keep = 'none', cache = FALSE)
+}else{
+  knitr::opts_chunk$set(echo = TRUE, results = 'display', message = TRUE, warning = TRUE, fig.keep = 'all')
+}
+options(repos=c(CRAN = "https://cran.uni-muenster.de/"))
+```
+
+## Introduction
+In general, the data that you will receive or pull from a database will contain some issues that need to be solved before you can apply empirical models. It is a common phrase that 80% of time and effort goes into preparation of the data, e.g. cleaning up any inconsistencies, reformatting variables and values, and transforming the data. 
+
+In this exercise, we will reconstruct the loans dataset from exercise 1 and have a closer look at its properties. The data that you receive from the bank's database is handed to you in two .csv files. One file contains information on the customers, the other contains the response variable: a binary indicator that depicts whether a customer missed a payment. The latter is called a 'default event' in the credit scoring literature.
+
+## Exercise 2.1: Loading data
+1. Read the (very short) description of the data set provided in the excel file **Loan_Data-Data_Dictionary**.
+2. Load both data sets **Loan\_Data_info.csv** and **Loan_Data_score.csv** into data.frames **loans.score** and **loans.info**, respectively.
+3. Check the structure of both data frames using function **str()**. Check if the variable types match the information provided in the data dictionary and are plausible.
+3. *Merge* the two data frames into one, using the common identification variable to match up the correct rows, and save the result to an object called **loans**. How many rows and columns do you expect the new data frame to have?
+4. Check the structure of **loans**. Make sure that the number of rows and columns matches your expectation. 
+
+```{r}
+# Load the data set into memory
+# Note that R expects the csv files to be stored in your working directory
+loans.score <- read.csv("Loan_Data_score.csv", sep = ",", header = TRUE)
+loans.info <- read.csv("Loan_Data_info.csv", sep = ",", header = TRUE)
+#Have a look into both data sets
+#The identificator 'ID' is included in both datasets 
+str(loans.info)
+str(loans.score)
+#Merge the two data frames into a new data frame. Here, the order of merge(x,y) is not important
+loans <- merge(loans.score, loans.info, by="ID")
+#Look at the data. 
+str(loans)
+#View(loans)
+#The newly created data frame has 1225 observations and 16 variables. The identificator 'ID' is still there, but only once
+```
+
+## Exercise 2.2: Formatting variables and values
+1. Print a *summary* of the data set and look for unexpected values. Check if the values are consistent with the information that you expect.
+2. Format nominal variables as a factor. 
+2. After matching the datasets, we will not need column **ID** anymore for this analysis. Delete it from the data frame by assigning **NULL** to it.
+3. Variable **PHON** should be a binary factor variable with the values 0/1 (Phone yes/no). Replace the unnecessary value by 1. Note: Change the type of the variable from factor to character before you replace values. Then change the variable type to numeric.
+4. For **YOB**, the data dictionary states that missing values are given as value 99. This is not good practice and will influence our predictions. Use logical indexing to assign the special value **NA** to variable **YOB** when it takes on value 99. Print the summary again to see how R reports the missing values in the variable.
+
+```{r}
+#Create a summary of the newly generated data frame "loans"
+summary(loans)
+#Pay special attention to the variables "nKIDS" and "PHON" as well as the distribution of "dINC_SP" and "dINC_A"
+
+#For our further analysis, the categorical identification number "ID" is not needed. Hence, we drop it from the data frame. Note that the data frame now contains 15 variables.
+loans$ID <- NULL 
+
+#Transform variable PHON to a character variable
+PHON.temp <- as.character(loans$PHON)
+#Select the values 'yes' and replace them with 1
+PHON.temp[PHON.temp == 'yes'] <- 1
+# Variable PHON now only contains numbers, but its type is still character
+is.numeric(PHON.temp)
+# Change PHON to type integer
+PHON.temp <- as.integer(PHON.temp)
+# Transform PHON to a factor variable again
+PHON.temp <- factor(PHON.temp)
+# Save the reformatted variable to the data frame and delete the temporary object
+loans$PHON <- PHON.temp
+rm(PHON.temp)
+#Check the new values
+summary(loans$PHON)
+
+# Select cases with YOB equal to 99 and set them to NA. NA is a special indicator for missing values in R and will be treated differently form other values.
+loans$YOB[loans$YOB == 99] <- NA
+# The summary now includes a count of missing values.
+summary(loans$YOB)
+```
+
+## Exercise 2.3: Treatment of missing values
+Two of the variables have missing values. While some models can work around missing values, most models will drop the observation completely by default. Let's see if we can do something about this.
+
+1. Variable **nKIDS** contains the value -1, which is clearly not a valid number of children. Let's assume that values of -1 encodes a missing value, e.g., when an applicant leaves the field empty because they have no children. The fact that this value is missing might, however, contain some information about the applicant. To sustain this information, create a dummy variable **nKIDS_missing** that is 1 if **nKIDS** is equal to -1 and 0 otherwise.
+2. We have now encoded the information that some values were missing. In the second step, replace -1 by 0 in variable **nKIDS**.
+3. There seems to be no clear way to replace missing values in **YOB** (year of birth). Since there are few missing values, we could consider deleting the corresponding applicants (rows) from our data. Alternatively, we replace them by the mode (=most frequent value) for the variable. HINT: Sort the value count of **table()** to find the most common value quickly.
+
+```{r}
+#Create a dummy variable KIDS_missing with 1 for -1 and 0 elsewise
+loans$nKIDS_missing <- ifelse(loans$nKIDS == -1, 1, 0)
+#Check your results by printing the first six values using function head
+head(loans$nKIDS_missing)
+
+#Transform nKIDS such that all values equal -1 are 0.
+loans$nKIDS[loans$nKIDS == '-1'] <- 0
+
+##Find the most frequent value
+#a)Function table gives a vector with the count of all unique values of YOB (second line) and the names of the values (upper line). We can sort this list using the function sort and look up the most frequent value
+sort(table(loans$YOB))
+#b)We can also have R output the value to us directly
+countYOB <- table(loans$YOB)
+#Print the names, i.e. unique variable values, and select the value(s) were the count is equal to the highest value.
+names(countYOB)[countYOB == max(countYOB)]
+#The most frequent year of birth is '64.
+#Replace all missing values NA with 64
+loans$YOB[is.na(loans$YOB)] <- 64 
+#Recheck the variable
+max(loans$YOB)
+```
+
+
+## BONUS Exercise 2.4: Standardization
+We will solve this exercise together in class.  Chapter 2 discussed how variables can be standardized. To do this for every numeric variable in our data, we will write a custom function.
+
+1. Start writing a custom R function by assigning **function()** to an object **standardize**. The input to the function must be specified in the brackets. This function should take an argument **x**. To keep things simple, we expect x to be a numeric vector.
+2. After the closing bracket, the body of the function is usually enclosed in curly brackets because it encompasses several lines. In the body of the function, calculate the mean and standard deviation of **x** and save them to the objects **mu** and **std** respectively. Then for each element in the vector, substract the mean and divide by the standard deviation.
+3. In the body of the function, **return** the standardized vector.
+4. Replace variable **dINC_A** by its standardized version and look at its summary.
+
+
+```{r}
+standardize <- function(x){
+  # This is called the 'body' of the function
+  # The variables used here must be handed to the function in the function call
+  # Objects that are created in the function call are not saved to the environment
+  mu <- mean(x)
+  std <- sd(x)
+  result <- (x - mu)/std
+  # Return ends the function and outputs the result
+  # A list can be returned to output more than one result
+  return(result)
+}
+
+# Custom functions are called like other functions
+loans$dINC_A <- standardize(loans$dINC_A)
+summary(loans$dINC_A)
+```
+
+

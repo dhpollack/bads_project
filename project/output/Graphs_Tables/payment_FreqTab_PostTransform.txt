@@ -1,0 +1,15 @@
+% latex table generated in R 3.3.2 by xtable 1.8-2 package
+% Sat Feb 11 12:10:22 2017
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlrrrr}
+  \hline
+ & Observed Value & traintest NObs & traintest \% & handin NObs & handin \% \\ 
+  \hline
+1 & Cash payment & 10555 & 20.34 & 2656 & 20.48 \\ 
+  2 & Invoice & 23988 & 46.23 & 5962 & 45.96 \\ 
+  3 & Transfer from credit card & 6859 & 13.22 & 1694 & 13.06 \\ 
+  4 & Transfer from current account & 10482 & 20.20 & 2659 & 20.50 \\ 
+   \hline
+\end{tabular}
+\end{table}

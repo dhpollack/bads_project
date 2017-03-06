@@ -1,0 +1,180 @@
+---
+title: "Exercise 4"
+subtitle: Business Analytics and Data Science WS16/17
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# NEED FOR CHANGE ---- 
+# Note that this code will not work on your computer. 
+#if (!grepl("Dropbox/Lecture/Mod_BADS/Tutorial", getwd(), ignore.case = T)){
+#  setwd(paste0(getwd(), "/../Dropbox/Lecture/Mod_BADS/Tutorial"))  
+#}
+
+# You can uncomment the next line and specify the directory for the exercise on your computer
+setwd("C://Your/own/path")
+# End of NEED FOR CHANGE ----
+
+solution <- TRUE
+if(solution == FALSE){
+knitr::opts_chunk$set(echo = FALSE, results = 'hide', message = FALSE, warning = FALSE, fig.keep = 'none', cache = FALSE)
+}
+options(repos=c(CRAN = "https://cran.uni-muenster.de/"))
+```
+
+## Introduction
+In a very simplified form, the process to develop a prediction model follows these steps: Prepare data - Train model - Test model - Repeat if necessary. In this exercise, we will go through these steps while introducing two basic prediction methods: logistic regression and the naive bayes classifier.
+
+## Asking for help
+We now come to a point where issues like errors and warnings will become more frequent and where you might want to ask for help when things won't work. This is great, remember that you have your classmates, your assignment group, the tutorial class, and your teachers to help you out - preferably in this order. We enjoy hard questions.
+In order to ask for help efficiently, learn the following steps by heart:
+
+1. Try to understand the error or warning message.
+2. Check if the objects that where saved before the error have the expected format and values.
+3. Check for typos or errors in your logic.
+4. Check the function help.
+5. Google the error message or your question. I highly recommend Stackoverflow.com .
+
+At this point, maybe you need some outside help. No matter who you aks, they will need the following information from you:
+
+1. What you were trying to do and how you were trying to do it.
+2. The exact problem that occured and the exact error message.
+3. What you have tried to solve the problem and why it didn't work.
+4. A reproducable example from your code. Don't send the whole code, just the parts that are needed to create the error (see the FAQ on stackoverflow). You can copy/paste objects via **dput()**.
+
+## Exercise 4.1: Loading scripts and automating data cleaning
+You have learned how to clean the data and how to create custom functions. So let's put this knowledge to use and create a custom function that loads and cleans the data for us. We will first create a custom function in a special script, where you can save all your convenient custom functions. Then, in the script for this exercise and future exercises, we will load the function and use it to load and clean our dataset.
+
+1. Open a new, empty R script (*File - New File - R Script*) and save it as **helperfunctions.R** in the same folder where the data is saved.
+2. Inside of this file, create a function called **get.loan.dataset** that takes no input and does the following steps:
+    - Load the loans data set **loan_data.csv**. Assume that the working directory is correctly set and that the data is in the current directory.
+    - Transform the relevant variables to factor variables and clean the missing values in variable **YOB**. HINT: Copy and paste the code from the last exercises, but make sure that it works. The factor variables are **PHON**, **BAD**, and **YOB_missing**.
+    - **return()** the cleaned and ready data frame.
+3. Make sure you saved file **helperfunctions.R**. Switch to the R script for this exercise. In this script, set the working directory to the location of the files **loan_data.csv** and **helperfunctions.R**.
+4. Use function **source()** to load and execute the script *helperfunctions.R* containing your custom function. The function should now be visible in your R environment. You can check by calling **get.loan.dataset** without the brackets.
+5. Use your custom function **get.loan.dataset()** to load and clean the data and save the resulting data frame to an object **loans**.
+
+```{r}
+# 4.1
+# 1. Read in the data
+# Link to the R script storing your function(s)
+source("BADS-HelperFunctions.R")
+loans <- get.loan.dataset()
+
+# If the previous line did not work on your machine, the most likely 
+# cause is that something with the file directories went wrong.
+# Check whether the data is available in your working directory. 
+# Recall that you can query your current working directory using the
+# commend getwd(). Also have a look into the function's source code
+# to understand where it tries to find the data file on your disk.
+# If everything went well, you can now use the data set, e.g., to 
+# build models. Let's produce the usual summary for start
+summary(loans)
+```
+
+## Exercise 4.2: Logistic regression
+Logistic regression is one of the standard models in predictive analytics, modeling the outcome of a categoric variable by a linear combination of independent variables transformed in a way to predict outcome probabilities between 0 and 1.
+
+1. Run a logistic regression to predict the dependent variable **BAD** based on all other variables in the data set. Use the **glm()** generalized model function to create the model and save the trained model as **lr**. Hint 1: Check the help on **formula** on how to specify "all other variables". Hint 2: Specify that you need a logistic model with option **family**. Check the help for **family** to find out which specification to use if you are unsure.
+2. Which variables have a significant impact on the value of **BAD**? In order to identify the significant variables, extract the *p-values* of model coefficients from the model object. Collect the column indices of all variables that are significant on the 5% level. 
+3. Use the trained model **lr** to predict for each observation in the **loans** data frame the probability that the applicant is a bad risk. Use function **predict()** and store the predictions in a variable **pred.lr**.
+4. Evaluate the model by computing the prediction accuracy of the model. This is defined as the ratio of correct predictions (*good* if observed *good*, *bad* if observed *bad*) to the overall number of predictions.
+5. Last, compute the Brier score **brier.lr** of your model to evaluate not only accuracy but also the *calibration* of your model. The Brier score is the mean square error (MSE) between the actual values of **BAD** (1/0) and the predicted class probabilities **pred.lr**. How well does your model perform?
+
+
+```{r}
+################################################
+# Creating a logistic regression classifier ####
+################################################
+
+# 2. The glm function offers the necessary functionality. 
+lr <- glm(BAD ~., data = loans, family = binomial(link="logit"))
+# The first parameter represents a formula. This is actually a common
+# approach to build prediction models. Basically, you say that your
+# dependent variable is called BAD and that BAD is a function (note the ~ sign)
+# of some independent variables. The dot "." represents the independent
+# variables. It means that R should use all variables available in your
+# data.frame (i.e., second parameter).
+# Given that glm() supports many types of models including logistic 
+# regression, you need to specify which model you need. 
+# The third parameter in the above function call does just that. 
+
+# Print a summary of the model
+summary(lr)
+# Note that you can extract the coefficients and p-values with function coef()
+coef(summary(lr))
+
+# Compute model predictions. For simplicity, we use the same data
+# that we used to build the model (i.e., resubstitution estimate)
+pred.lr <- predict(lr, newdata = loans, type = "response")
+# The last parameter says that the predicitons should be on the same
+# scale as the response (i.e., dependent variable). Try calling the
+# predict function without this parameter and see what happends.
+head(predict(lr, newdata=loans))
+
+# Start with an intuitive measure of model performance. For binary outcomes,
+# the accuracy of a model describes how often the predicted class matches
+# the observed outcome.
+# Infer the predicted class from the predicted class probabilities
+# We chose the default threshold of 0.5
+class.lr <- ifelse(pred.lr > 0.5, "bad", "good")
+accuracy.lr <- sum(class.lr == loans$BAD) / length(class.lr)
+
+# Compute the mean-square error between prediction 
+# and response (this is called the Brier Score).
+# First we need a zero-one coded target variable
+y <- as.numeric(loans$BAD)-1 # This is a good example of why you need to be careful when transforming factor variables to numeric
+brier.lr <- sum((y- pred.lr)^2) / length(y)
+sprintf("Logistic regression has a Brier Score of %.5f (lower is better)", brier.lr)
+# The lower the error the better the model.
+
+# Do you think your Brier Score is a good one?
+# Difficult to tell without a benchmark, right.
+# So we need a benchmark. 
+# There are two common naive benchmarks depending on if we test on the predicted classes or predicted probabilities.
+# First, a simple benchmark for discrete  class prediction is to 'predict' the most frequent  outcome for all cases
+# Function rep repeats a value for a number of times, here the number of observations
+class.benchmark <- rep("good", nrow(loans))
+accuracy.benchmark <- sum(loans$BAD == class.benchmark) / length(y)
+# Second, when prediting probabilities, we can do a little better than for each observation predict the event with its sample probability
+pred.benchmark <- rep(sum(loans$BAD == "bad")/nrow(loans), nrow(loans))
+brier.benchmark <- sum((y- pred.benchmark)^2) / length(y)
+
+### Excursion: Variable significance ####
+# Above we examined the coefficients and significance of the variables in 
+# our logistic regression model. Several variables turned out to be insignificant. So let's  estimate a reduced logit model including only the significant variables.
+lr.reduced <- glm(BAD ~ dINC_A + RES + dOUTCC + dINC_SP , data = loans, family = binomial(link = "logit"))
+pred.lr.reduced <- predict(lr.reduced, newdata=loans, type="response")
+brier.lr.reduced <- sum((y- pred.lr.reduced)^2) / length(y)
+sprintf("Reduced logistic regression model has a Brier Score of %.5f (c.f. %.5f of the model with all variabels included)", brier.lr.reduced, brier.lr)
+```
+
+
+## Exercise 4.3: Naive Bayes
+
+Naive Bayes is a simple classifier based on Bayes theorem presented in the lecture. It is called "Naive Bayes", because it works on the assumption that the values of all variables are mutually independent. 
+
+1. Install and load package **e1071**.
+2. In line with the estimatio of the logit model, train a Naive Bayes classifier with function **naiveBayes()** and save the result to an object **nb**. Then, *predict* the probability that an applicant poses a bad credit risk and save the results to **pred.nb**.
+3. Calculate the brier score for your prediction. What seems to be the better model to predict credit risks?
+
+
+```{r}
+#Install the package "e1071" and load it using the library() function. 
+#install.packages("e1071")
+library(e1071) 
+
+# Train a naive bayes model of BAD on all other variables in the data frame
+nb <- naiveBayes(BAD~., data = loans) 
+# You can again survey the model using the summary function
+summary(nb)
+
+#Lastly, predict the a-posteriory condition probabilities for the Naive Bayes classifier. 
+pred.nb <- predict(nb, newdata = loans, type = "raw")
+# Note that the predict function returns probabilities for both classes in a matrix when applied to a naive bayes model
+head(pred.nb)
+pred.nb <- pred.nb[, 2] # Extract the probabilities for the "1" event, i.e. a bad loan, saved in the second column
+
+# As above, calculate the Brier score for the classifier
+brier.nb <- sum((y- pred.nb)^2) / length(y)
+```

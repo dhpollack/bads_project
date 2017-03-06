@@ -1,0 +1,4 @@
+"","file","context","test","nb","failed","skipped","error","warning","user","system","real"
+"1","test_bads_project.R","","Load Libraries",0,0,FALSE,FALSE,0,6.106,0.0640000000000001,7.637
+"2","test_bads_project.R","","Train Num Rows",2,0,FALSE,FALSE,1,39.481,0.576,40.211
+"3","test_bads_project.R","","Test Num Rows",1,0,FALSE,FALSE,0,8.378,0.128,8.512

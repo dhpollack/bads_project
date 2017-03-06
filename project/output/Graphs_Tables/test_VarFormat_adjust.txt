@@ -1,0 +1,30 @@
+% latex table generated in R 3.3.2 by xtable 1.8-2 package
+% Sat Feb 11 12:10:17 2017
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \hline
+ & VarOK & VarAdjust \\ 
+  \hline
+1 & ID & order\_date \\ 
+  2 & form\_of\_address & title \\ 
+  3 & email\_domain & account\_creation\_date \\ 
+  4 & payment & newsletter \\ 
+  5 & postcode\_delivery & model \\ 
+  6 & advertising\_code & delivery \\ 
+  7 & weight & postcode\_invoice \\ 
+  8 & remitted\_items & coupon \\ 
+  9 & canceled\_items & goods\_value \\ 
+  10 & used\_items & item\_count \\ 
+  11 & book\_count & giftwrapping \\ 
+  12 & paperback\_count & referrer \\ 
+  13 & schoolbook\_count & points\_redeemed \\ 
+  14 & ebook\_count & cost\_shipping \\ 
+  15 & audiobook\_count & deliverydate\_estimated \\ 
+  16 & audiobook\_download\_count & deliverydate\_actual \\ 
+  17 & film\_count & imported\_count \\ 
+  18 & musical\_count & other\_count \\ 
+  19 & hardware\_count &  \\ 
+   \hline
+\end{tabular}
+\end{table}

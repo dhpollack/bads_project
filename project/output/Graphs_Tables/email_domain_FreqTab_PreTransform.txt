@@ -1,0 +1,24 @@
+% latex table generated in R 3.3.2 by xtable 1.8-2 package
+% Sat Feb 11 12:10:20 2017
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlrrrr}
+  \hline
+ & Observed Value & traintest NObs & traintest \% & handin NObs & handin \% \\ 
+  \hline
+1 & aol.com & 1903 & 3.67 & 502 & 3.87 \\ 
+  2 & arcor.de & 1807 & 3.48 & 448 & 3.45 \\ 
+  3 & freenet.de & 1918 & 3.70 & 483 & 3.72 \\ 
+  4 & gmail.com & 582 & 1.12 & 136 & 1.05 \\ 
+  5 & gmx.de & 10603 & 20.44 & 2680 & 20.66 \\ 
+  6 & hotmail.de & 2068 & 3.99 & 494 & 3.81 \\ 
+  7 & onlinehome.de & 183 & 0.35 &  46 & 0.35 \\ 
+  8 & other & 12300 & 23.71 & 3004 & 23.16 \\ 
+  9 & posteo.de & 890 & 1.72 & 223 & 1.72 \\ 
+  10 & t-online.de & 5958 & 11.48 & 1554 & 11.98 \\ 
+  11 & web.de & 11204 & 21.59 & 2760 & 21.28 \\ 
+  12 & yahoo.com & 203 & 0.39 &  51 & 0.39 \\ 
+  13 & yahoo.de & 2265 & 4.37 & 590 & 4.55 \\ 
+   \hline
+\end{tabular}
+\end{table}

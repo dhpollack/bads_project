@@ -1,0 +1,13 @@
+% latex table generated in R 3.3.2 by xtable 1.8-2 package
+% Sat Feb 11 12:10:25 2017
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlrrrr}
+  \hline
+ & Observed\_Value & traintest NObs & traintest \% & handin NObs & handin \% \\ 
+  \hline
+1 & 0 & 49608 & 95.61 & 12412 & 95.69 \\ 
+  2 & 1 & 2276 & 4.39 & 559 & 4.31 \\ 
+   \hline
+\end{tabular}
+\end{table}
